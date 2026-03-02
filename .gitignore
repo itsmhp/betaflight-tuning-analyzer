@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Uploads & temp files (don't commit user data!)
+uploads/
+*.bbl
+*.bfl
+*.csv
+*.bbl.csv
+!app/static/**
+
+# Blackbox decode tools (binary, too large)
+tools/blackbox_decode.exe
+tools/blackbox_decode
+tools/*.exe
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/

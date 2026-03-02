@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - Betaflight Tuning Analyzer{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Betaflight Tuning Analyzer</h1>
+    <p class="hero-sub">Upload your CLI dump and blackbox log for comprehensive tuning analysis</p>
+</div>
+
+{% if errors %}
+<div class="alert alert-error">
+    <strong>Error:</strong>
+    <ul>
+    {% for err in errors %}
+        <li>{{ err }}</li>
+    {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="upload-card">
+    <form action="/analyze" method="post" enctype="multipart/form-data" id="upload-form">
+        <div class="form-grid">
+            <!-- CLI Dump -->
+            <div class="form-group">
+                <label for="cli_file" class="form-label">
+                    <span class="label-icon">📋</span>
+                    CLI Dump File <span class="required">*</span>
+                </label>
+                <p class="form-hint">Betaflight CLI "dump all" output (.txt / .log / .cli)</p>
+                <div class="file-drop" id="cli-drop">
+                    <input type="file" name="cli_file" id="cli_file" accept=".txt,.log,.cli" required>
+                    <div class="drop-content">
+                        <span class="drop-icon">📄</span>
+                        <p>Drop CLI dump here or <span class="browse">browse</span></p>
+                        <p class="drop-hint" id="cli-filename">No file selected</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BBL File -->
+            <div class="form-group">
+                <label for="bbl_file" class="form-label">
+                    <span class="label-icon">📊</span>
+                    Blackbox Log File <span class="optional">(optional)</span>
+                </label>
+                <p class="form-hint">Blackbox flight log (.bbl / .bfl / .csv)</p>
+                <div class="file-drop" id="bbl-drop">
+                    <input type="file" name="bbl_file" id="bbl_file" accept=".bbl,.bfl,.csv">
+                    <div class="drop-content">
+                        <span class="drop-icon">📈</span>
+                        <p>Drop blackbox log here or <span class="browse">browse</span></p>
+                        <p class="drop-hint" id="bbl-filename">No file selected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submit-btn">
+                <span class="btn-icon">🔍</span>
+                Analyze Tuning
+            </button>
+        </div>
+
+        <div class="loading-overlay" id="loading" style="display:none;">
+            <div class="spinner"></div>
+            <p>Analyzing flight data... This may take a moment.</p>
+        </div>
+    </form>
+</div>
+
+<div class="info-cards">
+    <div class="info-card">
+        <h3>📋 Phase 1: CLI Analysis</h3>
+        <p>Analyzes PID values, filter settings, rates, motor config, and general settings against best practices.</p>
+    </div>
+    <div class="info-card">
+        <h3>📊 Phase 2: BBL Headers</h3>
+        <p>Extracts and cross-references configuration from blackbox log headers with CLI dump.</p>
+    </div>
+    <div class="info-card">
+        <h3>📈 Phase 3: Flight Data</h3>
+        <p>FFT noise analysis, motor balance, PID tracking quality, and voltage monitoring from flight data.</p>
+    </div>
+</div>
+
+<div class="how-to">
+    <h3>How to get your CLI dump:</h3>
+    <ol>
+        <li>Open <strong>Betaflight Configurator</strong></li>
+        <li>Connect to your flight controller</li>
+        <li>Go to the <strong>CLI</strong> tab</li>
+        <li>Type <code>dump all</code> and press Enter</li>
+        <li>Click <strong>"Save to File"</strong> to save the output</li>
+    </ol>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // File drop & name display
+    document.querySelectorAll('.file-drop input').forEach(input => {
+        const display = input.closest('.file-drop').querySelector('.drop-hint');
+        input.addEventListener('change', () => {
+            if (input.files.length > 0) {
+                display.textContent = input.files[0].name;
+                display.classList.add('has-file');
+                input.closest('.file-drop').classList.add('has-file');
+            }
+        });
+    });
+
+    // Loading state
+    document.getElementById('upload-form').addEventListener('submit', function() {
+        const cliFile = document.getElementById('cli_file');
+        if (cliFile.files.length === 0) return;
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('submit-btn').disabled = true;
+    });
+
+    // Drag & drop styling
+    document.querySelectorAll('.file-drop').forEach(zone => {
+        ['dragenter', 'dragover'].forEach(evt => {
+            zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('drag-over'); });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('drag-over'); });
+        });
+        zone.addEventListener('drop', e => {
+            const input = zone.querySelector('input');
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        });
+    });
+</script>
+{% endblock %}

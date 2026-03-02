@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results - Betaflight Tuning Analyzer{% endblock %}
+
+{% block content %}
+<!-- Header Summary -->
+<div class="results-header">
+    <div class="score-ring" data-score="{{ report.overall_score }}">
+        <svg viewBox="0 0 120 120">
+            <circle class="score-bg" cx="60" cy="60" r="52" />
+            <circle class="score-fill" cx="60" cy="60" r="52"
+                    stroke-dasharray="{{ (report.overall_score / 100) * 327 }} 327" />
+        </svg>
+        <div class="score-text">
+            <span class="score-num">{{ report.overall_score }}</span>
+            <span class="score-label">/100</span>
+        </div>
+    </div>
+    <div class="results-info">
+        <h1>Analysis Results</h1>
+        {% if cli_data %}
+        <p class="craft-info">
+            <strong>{{ cli_data.craft_name or "Unknown Craft" }}</strong>
+            &bull; {{ cli_data.board_name or "?" }}
+            &bull; Betaflight {{ cli_data.firmware_version or "?" }}
+        </p>
+        {% endif %}
+        <div class="stat-pills">
+            <span class="pill pill-error">{{ report.error_count }} Errors</span>
+            <span class="pill pill-warn">{{ report.warning_count }} Warnings</span>
+            <span class="pill pill-info">{{ report.info_count }} Info</span>
+            <span class="pill pill-total">{{ report.findings|length }} Total</span>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tabs" id="result-tabs">
+    <button class="tab active" data-target="tab-overview">Overview</button>
+    {% for cat_name in findings_by_category %}
+    <button class="tab" data-target="tab-{{ cat_name|lower }}">{{ cat_name }}</button>
+    {% endfor %}
+    <button class="tab" data-target="tab-cli">CLI Commands</button>
+    {% if chart_data %}
+    <button class="tab" data-target="tab-charts">Charts</button>
+    {% endif %}
+</div>
+
+<!-- ==================== OVERVIEW TAB ==================== -->
+<div class="tab-panel active" id="tab-overview">
+    <h2>Overview</h2>
+
+    <!-- Errors & Warnings first -->
+    {% set critical_findings = [] %}
+    {% for f in report.findings %}
+        {% if f.severity.value in ['error', 'critical'] %}
+            {% if critical_findings.append(f) %}{% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if critical_findings %}
+    <div class="section-alert">
+        <h3>⚠ Issues Requiring Attention</h3>
+        {% for f in critical_findings %}
+        <div class="finding-card severity-{{ f.severity.value }}">
+            <div class="finding-header">
+                <span class="severity-badge {{ f.severity.value }}">{{ f.severity.value|upper }}</span>
+                <span class="finding-cat">{{ f.category.value }}</span>
+                <strong>{{ f.title }}</strong>
+            </div>
+            <p>{{ f.description }}</p>
+            {% if f.explanation %}
+            <p class="finding-explain">{{ f.explanation }}</p>
+            {% endif %}
+            {% if f.cli_commands %}
+            <div class="finding-cli">
+                <code>{% for cmd in f.cli_commands %}{{ cmd }}
+{% endfor %}</code>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Warnings -->
+    {% set warnings = [] %}
+    {% for f in report.findings %}
+        {% if f.severity.value == 'warning' %}
+            {% if warnings.append(f) %}{% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if warnings %}
+    <div class="section-warnings">
+        <h3>⚡ Warnings ({{ warnings|length }})</h3>
+        {% for f in warnings %}
+        <div class="finding-card severity-warning">
+            <div class="finding-header">
+                <span class="severity-badge warning">WARNING</span>
+                <span class="finding-cat">{{ f.category.value }}</span>
+                <strong>{{ f.title }}</strong>
+            </div>
+            <p>{{ f.description }}</p>
+            {% if f.explanation %}
+            <details><summary>Why?</summary><p>{{ f.explanation }}</p></details>
+            {% endif %}
+            {% if f.cli_commands %}
+            <div class="finding-cli">
+                <code>{% for cmd in f.cli_commands %}{{ cmd }}
+{% endfor %}</code>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Quick Config Summary -->
+    {% if cli_data %}
+    <div class="config-summary">
+        <h3>Configuration Summary</h3>
+        <div class="config-grid">
+            <div class="config-item">
+                <span class="config-label">Board</span>
+                <span class="config-value">{{ cli_data.board_name }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Firmware</span>
+                <span class="config-value">BF {{ cli_data.firmware_version }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Motor Protocol</span>
+                <span class="config-value">{{ cli_data.motor_pwm_protocol }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Bidir DShot</span>
+                <span class="config-value">{{ "Yes" if cli_data.dshot_bidir else "No" }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">RX Protocol</span>
+                <span class="config-value">{{ cli_data.serialrx_provider }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Motor Poles</span>
+                <span class="config-value">{{ cli_data.motor_poles }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Motor KV</span>
+                <span class="config-value">{{ cli_data.motor_kv }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">PID Profile</span>
+                <span class="config-value">{{ cli_data.active_pid_profile }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Rate Profile</span>
+                <span class="config-value">{{ cli_data.active_rate_profile }}</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Blackbox</span>
+                <span class="config-value">{{ cli_data.blackbox_device or "None" }}</span>
+            </div>
+        </div>
+
+        <!-- Active PID Values -->
+        {% set ap = cli_data.active_pid_profile %}
+        {% if cli_data.pid_profiles[ap] %}
+        {% set pid = cli_data.pid_profiles[ap] %}
+        <h4>Active PID Values (Profile {{ ap }})</h4>
+        <table class="pid-table">
+            <thead>
+                <tr><th>Axis</th><th>P</th><th>I</th><th>D</th><th>F</th><th>D Min</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Roll</td>
+                    <td>{{ pid.p_roll }}</td>
+                    <td>{{ pid.i_roll }}</td>
+                    <td>{{ pid.d_roll }}</td>
+                    <td>{{ pid.f_roll }}</td>
+                    <td>{{ pid.d_min_roll }}</td>
+                </tr>
+                <tr>
+                    <td>Pitch</td>
+                    <td>{{ pid.p_pitch }}</td>
+                    <td>{{ pid.i_pitch }}</td>
+                    <td>{{ pid.d_pitch }}</td>
+                    <td>{{ pid.f_pitch }}</td>
+                    <td>{{ pid.d_min_pitch }}</td>
+                </tr>
+                <tr>
+                    <td>Yaw</td>
+                    <td>{{ pid.p_yaw }}</td>
+                    <td>{{ pid.i_yaw }}</td>
+                    <td>{{ pid.d_yaw }}</td>
+                    <td>{{ pid.f_yaw }}</td>
+                    <td>{{ pid.d_min_yaw }}</td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- ==================== CATEGORY TABS ==================== -->
+{% for cat_name, cat_findings in findings_by_category.items() %}
+<div class="tab-panel" id="tab-{{ cat_name|lower }}">
+    <h2>{{ cat_name }}</h2>
+    {% for f in cat_findings %}
+    <div class="finding-card severity-{{ f.severity.value }}">
+        <div class="finding-header">
+            <span class="severity-badge {{ f.severity.value }}">{{ f.severity.value|upper }}</span>
+            <strong>{{ f.title }}</strong>
+        </div>
+        <p>{{ f.description }}</p>
+        {% if f.explanation %}
+        <details><summary>Explanation</summary><p>{{ f.explanation }}</p></details>
+        {% endif %}
+        {% if f.recommended_value %}
+        <p class="finding-rec"><strong>Recommended:</strong> {{ f.recommended_value }}</p>
+        {% endif %}
+        {% if f.cli_commands %}
+        <div class="finding-cli">
+            <code>{% for cmd in f.cli_commands %}{{ cmd }}
+{% endfor %}</code>
+            <button class="btn-copy" onclick="copyText(this)" data-text="{{ f.cli_commands|join('\n') }}">Copy</button>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endfor %}
+
+<!-- ==================== CLI COMMANDS TAB ==================== -->
+<div class="tab-panel" id="tab-cli">
+    <h2>Ready-to-Paste CLI Commands</h2>
+    <p>Copy the entire block below and paste it into the Betaflight CLI tab.</p>
+
+    <div class="cli-output">
+        <div class="cli-toolbar">
+            <button class="btn btn-sm btn-primary" onclick="copyCliScript()">📋 Copy All</button>
+            <span class="cli-count">{{ cli_diff|length }} changes</span>
+        </div>
+        <pre id="cli-script">{{ cli_script }}</pre>
+    </div>
+
+    {% if cli_diff %}
+    <h3>Individual Changes</h3>
+    <p>Select which changes to apply:</p>
+    <div class="cli-diff-list">
+        {% for item in cli_diff %}
+        <div class="diff-item">
+            <label>
+                <input type="checkbox" class="diff-check" data-idx="{{ item.index }}" checked>
+                <span class="severity-badge {{ item.severity }}">{{ item.severity|upper }}</span>
+                <strong>{{ item.title }}</strong>
+            </label>
+            <p class="diff-desc">{{ item.description|truncate(150) }}</p>
+            <code class="diff-cmds">{{ item.commands|join('; ') }}</code>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- ==================== CHARTS TAB ==================== -->
+{% if chart_data %}
+<div class="tab-panel" id="tab-charts">
+    <h2>Flight Data Charts</h2>
+
+    {% if chart_data.get('noise_spectra') %}
+    <div class="chart-box">
+        <h3>Gyro Noise Spectrum</h3>
+        <div id="chart-noise-spectrum" class="chart-container"></div>
+    </div>
+    {% endif %}
+
+    {% if chart_data.get('pre_post_spectra') %}
+    <div class="chart-box">
+        <h3>Pre-Filter vs Post-Filter</h3>
+        <div id="chart-pre-post" class="chart-container"></div>
+    </div>
+    {% endif %}
+
+    {% if chart_data.get('motor_balance') %}
+    <div class="chart-box">
+        <h3>Motor Balance</h3>
+        <div id="chart-motor-balance" class="chart-container"></div>
+    </div>
+    {% endif %}
+
+    {% if chart_data.get('pid_contributions') %}
+    <div class="chart-box">
+        <h3>PID Term Contributions</h3>
+        <div id="chart-pid-contrib" class="chart-container"></div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="back-link">
+    <a href="/" class="btn btn-secondary">← Analyze Another</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.target).classList.add('active');
+        });
+    });
+
+    // Copy functions
+    function copyCliScript() {
+        const text = document.getElementById('cli-script').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('CLI commands copied!');
+        });
+    }
+    function copyText(btn) {
+        navigator.clipboard.writeText(btn.dataset.text).then(() => {
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 1500);
+        });
+    }
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }
+
+    // ---- Charts ----
+    const chartData = {{ chart_data | tojson }};
+    const darkLayout = {
+        paper_bgcolor: '#1a1a2e',
+        plot_bgcolor: '#16213e',
+        font: { color: '#e0e0e0' },
+        xaxis: { gridcolor: '#2a2a4a' },
+        yaxis: { gridcolor: '#2a2a4a' },
+        margin: { t: 30, b: 40, l: 50, r: 20 },
+    };
+
+    if (typeof renderCharts === 'function') {
+        renderCharts(chartData, darkLayout);
+    }
+</script>
+{% endblock %}
