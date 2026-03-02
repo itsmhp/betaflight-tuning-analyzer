@@ -1,19 +1,47 @@
 """Application configuration."""
 import os
+import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-TOOLS_DIR = BASE_DIR / "tools"
-TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+# ---------------------------------------------------------------------------
+# Path resolution – works both normally and inside a PyInstaller .exe bundle
+# ---------------------------------------------------------------------------
+def _get_bundle_dir() -> Path:
+    """Return the base directory for bundled assets (sys._MEIPASS when frozen)."""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
+
+
+def _get_exe_dir() -> Path:
+    """Return the directory that contains the running .exe (or project root)."""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent
+    return Path(__file__).resolve().parent.parent
+
+
+BUNDLE_DIR = _get_bundle_dir()
+EXE_DIR = _get_exe_dir()
+
+# Templates / static live inside the bundle (extracted by PyInstaller)
+TEMPLATES_DIR = BUNDLE_DIR / "app" / "templates"
+STATIC_DIR    = BUNDLE_DIR / "app" / "static"
+
+# Uploads go next to the .exe (writable location)
+UPLOAD_DIR = EXE_DIR / "uploads"
+
+# Tools (blackbox_decode) next to the .exe, fallback to bundle
+BLACKBOX_DECODE_BIN = "blackbox_decode.exe" if os.name == "nt" else "blackbox_decode"
+_tools_exe   = EXE_DIR  / "tools" / BLACKBOX_DECODE_BIN
+_tools_bundle = BUNDLE_DIR / "tools" / BLACKBOX_DECODE_BIN
+TOOLS_DIR    = EXE_DIR / "tools" if _tools_exe.exists() else BUNDLE_DIR / "tools"
+BLACKBOX_DECODE_PATH = _tools_exe if _tools_exe.exists() else _tools_bundle
+
+# Legacy BASE_DIR alias
+BASE_DIR = EXE_DIR
 
 # Ensure upload directory exists
-UPLOAD_DIR.mkdir(exist_ok=True)
-
-# blackbox_decode executable name (platform-dependent)
-BLACKBOX_DECODE_BIN = "blackbox_decode.exe" if os.name == "nt" else "blackbox_decode"
-BLACKBOX_DECODE_PATH = TOOLS_DIR / BLACKBOX_DECODE_BIN
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Analysis settings
 MAX_UPLOAD_SIZE_MB = 200
