@@ -53,29 +53,38 @@ class RateAnalyzer:
                 ("Yaw", rate.yaw_rc_rate, rate.yaw_srate, rate.yaw_expo),
             ]
             for axis, rc_rate, srate, expo in axes:
-                # ACTUAL rates: center_rate = rc_rate * 200, max_rate = center_rate + srate * 200
-                center_sens = rc_rate * 10  # deg/s at center (per 10 units)
-                max_rate_dps = (rc_rate * 10) + (srate * 10)  # rough approximation
+                # ACTUAL rates formula:
+                # center sensitivity = rc_rate * 10 deg/s
+                # max rate (at full stick) = (rc_rate + srate) * 10 deg/s
+                # expo affects the curve shape, not max rate
+                center_sens_dps = rc_rate * 10
+                max_rate_dps = (rc_rate + srate) * 10
 
-                # More accurate for ACTUAL:
-                # max_rate = rc_rate * 200 (center) + srate * 200 (endpoint added)
-                max_rate_accurate = rc_rate * 200 + srate * 200
+                report.add_finding(Finding(
+                    category=Category.RATE,
+                    severity=Severity.INFO,
+                    title=f"{axis} Rate: center {center_sens_dps}°/s, max {max_rate_dps}°/s",
+                    description=f"{axis}: rc_rate={rc_rate} ({center_sens_dps}°/s center), "
+                               f"srate={srate}, expo={expo} → max ~{max_rate_dps}°/s.",
+                    explanation="ACTUAL rates: center sensitivity = rc_rate×10 deg/s, "
+                               "max rate = (rc_rate + srate)×10 deg/s. Expo affects the transition curve.",
+                ))
 
-                if max_rate_accurate < 400:
+                if max_rate_dps < 400:
                     report.add_finding(Finding(
                         category=Category.RATE,
                         severity=Severity.WARNING,
-                        title=f"Low {axis} Max Rate (~{max_rate_accurate} deg/s)",
+                        title=f"Low {axis} Max Rate (~{max_rate_dps} deg/s)",
                         description=f"Maximum rotation rate on {axis} is approximately "
-                                   f"{max_rate_accurate} deg/s. This may feel slow for freestyle.",
+                                   f"{max_rate_dps} deg/s. This may feel slow for freestyle.",
                         explanation="For freestyle, 600-900 deg/s is common. For racing, 800-1200. "
                                    "For cinematic, 200-500 is fine.",
                     ))
-                elif max_rate_accurate > 1400:
+                elif max_rate_dps > 1400:
                     report.add_finding(Finding(
                         category=Category.RATE,
                         severity=Severity.INFO,
-                        title=f"High {axis} Max Rate (~{max_rate_accurate} deg/s)",
+                        title=f"High {axis} Max Rate (~{max_rate_dps} deg/s)",
                         description=f"Very high max rate. Fine for racing but may make "
                                    f"precise movements harder.",
                     ))

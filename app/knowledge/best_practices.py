@@ -41,6 +41,8 @@ class Finding:
     cli_commands: List[str] = field(default_factory=list)
     explanation: str = ""
     reference_url: str = ""
+    # Optional structured data for charts/detailed display
+    data: Optional[dict] = field(default=None)
 
 
 @dataclass

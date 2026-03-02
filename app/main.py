@@ -198,7 +198,7 @@ def _run_analysis(cli_text: str, bbl_path: Optional[Path] = None) -> dict:
 
         # ---- Phase 3: Flight data analysis ----
         data_parser = BBLDataParser()
-        flight_data = data_parser.parse(bbl_path)
+        flight_data = data_parser.parse_bbl_file(str(bbl_path))
 
         if flight_data:
             NoiseAnalyzer().analyze_flight_data(flight_data, bbl_header, report)

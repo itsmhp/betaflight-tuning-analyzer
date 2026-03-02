@@ -81,11 +81,58 @@ class FlightData:
     # RSSI
     rssi: Optional[np.ndarray] = None
 
+    # Energy
+    energy_mah: Optional[np.ndarray] = None
+
     # Metadata
     sample_count: int = 0
     duration_seconds: float = 0.0
     sample_rate_hz: float = 0.0
     available_fields: List[str] = field(default_factory=list)
+
+    # ------------------------------------------------------------------
+    # Indexed-access properties (for analyzers that use axis indices)
+    # ------------------------------------------------------------------
+
+    @property
+    def gyro_filtered(self) -> List[Optional[np.ndarray]]:
+        """Filtered gyro [roll, pitch, yaw] – same data as gyro_roll/pitch/yaw."""
+        return [self.gyro_roll, self.gyro_pitch, self.gyro_yaw]
+
+    @property
+    def gyro_unfiltered(self) -> List[Optional[np.ndarray]]:
+        """Unfiltered gyro [roll, pitch, yaw]."""
+        return [self.gyro_unfilt_roll, self.gyro_unfilt_pitch, self.gyro_unfilt_yaw]
+
+    @property
+    def setpoint(self) -> List[Optional[np.ndarray]]:
+        """Setpoint [roll, pitch, yaw, throttle]."""
+        return [self.setpoint_roll, self.setpoint_pitch, self.setpoint_yaw, self.setpoint_throttle]
+
+    @property
+    def rc_command(self) -> List[Optional[np.ndarray]]:
+        """RC command [roll, pitch, yaw, throttle]."""
+        return [self.rc_command_roll, self.rc_command_pitch, self.rc_command_yaw, self.rc_command_throttle]
+
+    @property
+    def pid_p(self) -> List[Optional[np.ndarray]]:
+        """PID P-term [roll, pitch, yaw]."""
+        return [self.pid_p_roll, self.pid_p_pitch, self.pid_p_yaw]
+
+    @property
+    def pid_i(self) -> List[Optional[np.ndarray]]:
+        """PID I-term [roll, pitch, yaw]."""
+        return [self.pid_i_roll, self.pid_i_pitch, self.pid_i_yaw]
+
+    @property
+    def pid_d(self) -> List[Optional[np.ndarray]]:
+        """PID D-term [roll, pitch, yaw]."""
+        return [self.pid_d_roll, self.pid_d_pitch, self.pid_d_yaw]
+
+    @property
+    def pid_f(self) -> List[Optional[np.ndarray]]:
+        """PID F-term (feedforward) [roll, pitch, yaw]."""
+        return [self.pid_f_roll, self.pid_f_pitch, self.pid_f_yaw]
 
 
 class BBLDataParser:
@@ -130,6 +177,9 @@ class BBLDataParser:
         "accSmooth[0]": "acc_x",
         "accSmooth[1]": "acc_y",
         "accSmooth[2]": "acc_z",
+        # Energy
+        "energyCumulative (mAh)": "energy_mah",
+        "energyCumulative": "energy_mah",
     }
 
     def decode_bbl_file(self, bbl_path: str, log_index: int = 0) -> Optional[str]:

@@ -14,6 +14,7 @@ class PIDProfile:
     """Single PID profile data."""
     index: int = 0
     name: str = ""
+    _has_settings: bool = field(default=False, compare=False, repr=False)
     # PID values
     p_roll: int = 0
     i_roll: int = 0
@@ -123,6 +124,7 @@ class RateProfile:
     """Single rate profile data."""
     index: int = 0
     name: str = ""
+    _has_settings: bool = field(default=False, compare=False, repr=False)
     rates_type: str = "ACTUAL"
     thr_mid: int = 50
     thr_expo: int = 0
@@ -532,14 +534,17 @@ class CLIParser:
 
         if key == "profile_name":
             p.name = value
+            p._has_settings = True
         elif key in int_fields:
             try:
                 setattr(p, key, int(value))
+                p._has_settings = True
             except ValueError:
                 pass
         elif key in str_fields:
             if hasattr(p, key):
                 setattr(p, key, value)
+                p._has_settings = True
 
     def _apply_rate_profile_setting(self, key: str, value: str):
         """Apply a setting to the current rate profile."""
@@ -561,38 +566,64 @@ class CLIParser:
 
         if key == "rateprofile_name":
             r.name = value
+            r._has_settings = True
         elif key in int_fields:
             try:
                 setattr(r, key, int(value))
+                r._has_settings = True
             except ValueError:
                 pass
         elif key in str_fields:
             if key == "rates_type":
                 r.rates_type = value
+                r._has_settings = True
             elif key == "throttle_limit_type":
                 r.throttle_limit_type = value
+                r._has_settings = True
+
+    def _has_pid_data(self, profile: "PIDProfile") -> bool:
+        """Return True if the profile has received any settings from CLI."""
+        return profile._has_settings
+
+    def _has_rate_data(self, profile: "RateProfile") -> bool:
+        """Return True if the rate profile has received any settings from CLI."""
+        return profile._has_settings
 
     def _save_current_profiles(self):
-        """Save current profile to the profiles list."""
+        """Save current profile to the profiles list.
+
+        Important: When a profile's switch command appears a second time
+        (BF CLI uses 'profile N' again at end to restore active profile),
+        it creates an empty profile that would overwrite valid data.
+        Guard against this by never replacing an existing profile that has
+        data with an empty one.
+        """
         if self._current_pid_profile is not None:
-            # Check if already exists (update) or new
-            existing = [p for p in self.data.pid_profiles
-                        if p.index == self._current_pid_profile.index]
+            p = self._current_pid_profile
+            existing = [prof for prof in self.data.pid_profiles
+                        if prof.index == p.index]
             if existing:
-                idx = self.data.pid_profiles.index(existing[0])
-                self.data.pid_profiles[idx] = self._current_pid_profile
+                # Only overwrite existing data if new profile has actual values
+                if self._has_pid_data(p):
+                    idx = self.data.pid_profiles.index(existing[0])
+                    self.data.pid_profiles[idx] = p
+                # else: skip – this is a "restore active profile" switch with no data
             else:
-                self.data.pid_profiles.append(self._current_pid_profile)
+                self.data.pid_profiles.append(p)
             self._current_pid_profile = None
 
         if self._current_rate_profile is not None:
-            existing = [r for r in self.data.rate_profiles
-                        if r.index == self._current_rate_profile.index]
+            r = self._current_rate_profile
+            existing = [rp for rp in self.data.rate_profiles
+                        if rp.index == r.index]
             if existing:
-                idx = self.data.rate_profiles.index(existing[0])
-                self.data.rate_profiles[idx] = self._current_rate_profile
+                # Only overwrite existing data if new rate profile has actual values
+                if self._has_rate_data(r):
+                    idx = self.data.rate_profiles.index(existing[0])
+                    self.data.rate_profiles[idx] = r
+                # else: skip – this is a "restore active rateprofile" switch with no data
             else:
-                self.data.rate_profiles.append(self._current_rate_profile)
+                self.data.rate_profiles.append(r)
             self._current_rate_profile = None
 
     def _detect_active_profiles(self, cli_text: str):
