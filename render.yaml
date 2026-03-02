@@ -1,15 +1,15 @@
-# render.yaml – Konfigurasi otomatis untuk Render.com
+# render.yaml – Automatic deployment configuration for Render.com
 # https://render.com/docs/blueprint-spec
 
 services:
   - type: web
     name: betaflight-tuning-analyzer
     runtime: python
-    plan: free            # Free tier (akan sleep jika tidak aktif 15 menit)
+    plan: free            # Free tier (sleeps after 15 min of inactivity)
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
     healthCheckPath: /
-    autoDeploy: true      # Auto deploy setiap push ke GitHub
+    autoDeploy: true      # Auto deploy on every push to GitHub

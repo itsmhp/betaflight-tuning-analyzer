@@ -1,7 +1,7 @@
-# Folder ini untuk blackbox_decode binary (tidak di-commit ke git)
-# Download dari: https://github.com/betaflight/blackbox-tools/releases
+# This folder is for the blackbox_decode binary (not committed to git)
+# Download from: https://github.com/betaflight/blackbox-tools/releases
 #
-# Taruh file berikut di sini:
+# Place the appropriate file here:
 #   Windows : blackbox_decode.exe
 #   Linux   : blackbox_decode
 #   macOS   : blackbox_decode

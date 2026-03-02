@@ -261,6 +261,123 @@ body {
     color: var(--accent);
 }
 
+/* ---- Section Titles ---- */
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.section-title .optional {
+    font-weight: 400;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* ---- Quad Profile Grid ---- */
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
+@media (max-width: 900px) {
+    .profile-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 500px) {
+    .profile-grid { grid-template-columns: 1fr; }
+}
+.form-group-sm label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.form-group-sm select,
+.form-group-sm input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.88rem;
+    transition: border-color 0.2s;
+}
+.form-group-sm select:focus,
+.form-group-sm input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+.form-group-sm select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 5.5l6.5 6.5 6.5-6.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+}
+.form-group-sm input::placeholder {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+/* ---- Preset Selector Cards ---- */
+.preset-selector {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+}
+@media (max-width: 900px) {
+    .preset-selector { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 500px) {
+    .preset-selector { grid-template-columns: repeat(2, 1fr); }
+}
+.preset-card {
+    display: block;
+    background: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+.preset-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+.preset-card.selected {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.08);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+.preset-card input[type="radio"] {
+    display: none;
+}
+.preset-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.preset-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+.preset-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
 /* ============================================
    RESULTS PAGE
    ============================================ */
@@ -539,15 +656,43 @@ details p { margin-top: 6px; }
 }
 
 /* ---- Charts ---- */
+.chart-section {
+    margin-bottom: 32px;
+}
+.chart-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+@media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+}
 .chart-box {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 20px;
-    margin-bottom: 16px;
 }
-.chart-box h3 { margin-bottom: 12px; }
+.chart-box.chart-wide {
+    grid-column: 1 / -1;  /* span full width */
+}
+.chart-box h3 { margin-bottom: 4px; font-size: 0.95rem; }
+.chart-desc {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
 .chart-container { width: 100%; height: 350px; }
+.chart-container.chart-tall { height: 420px; }
 
 /* ---- Back Link ---- */
 .back-link {

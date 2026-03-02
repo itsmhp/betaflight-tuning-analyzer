@@ -34,6 +34,80 @@
     </div>
 </div>
 
+<!-- Quad Profile Summary (if provided) -->
+{% if quad_profile and quad_profile.is_provided %}
+<div class="config-summary" style="margin-bottom: 16px;">
+    <h3>Quad Profile</h3>
+    <div class="config-grid">
+        {% if quad_profile.frame_size %}
+        <div class="config-item">
+            <span class="config-label">Frame</span>
+            <span class="config-value">{{ quad_profile.frame_size }}</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.prop_size %}
+        <div class="config-item">
+            <span class="config-label">Props</span>
+            <span class="config-value">{{ quad_profile.prop_size }}</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.battery_cells %}
+        <div class="config-item">
+            <span class="config-label">Battery</span>
+            <span class="config-value">{{ quad_profile.battery_cells }}S</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.motor_kv %}
+        <div class="config-item">
+            <span class="config-label">Motor KV</span>
+            <span class="config-value">{{ quad_profile.motor_kv }}</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.weight_grams %}
+        <div class="config-item">
+            <span class="config-label">AUW</span>
+            <span class="config-value">{{ quad_profile.weight_grams }}g</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.fc_name %}
+        <div class="config-item">
+            <span class="config-label">FC</span>
+            <span class="config-value">{{ quad_profile.fc_name }}</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.esc_name %}
+        <div class="config-item">
+            <span class="config-label">ESC</span>
+            <span class="config-value">{{ quad_profile.esc_name }}</span>
+        </div>
+        {% endif %}
+        {% if quad_profile.flying_style %}
+        <div class="config-item">
+            <span class="config-label">Style</span>
+            <span class="config-value">{{ quad_profile.flying_style|capitalize }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Preset Comparison (if selected) -->
+{% if preset_data %}
+<div class="config-summary" style="margin-bottom: 16px; border-left: 4px solid var(--accent);">
+    <h3>Preset: {{ preset_data.label }}</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 12px;">{{ preset_data.description }}</p>
+    {% if preset_cli %}
+    <div class="cli-output">
+        <div class="cli-toolbar">
+            <button class="btn btn-sm btn-primary" onclick="copyPresetCli()">Copy Preset CLI</button>
+            <span class="cli-count">Preset commands</span>
+        </div>
+        <pre id="preset-cli-script">{{ preset_cli }}</pre>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Tab Navigation -->
 <div class="tabs" id="result-tabs">
     <button class="tab active" data-target="tab-overview">Overview</button>
@@ -268,35 +342,134 @@
 <!-- ==================== CHARTS TAB ==================== -->
 {% if chart_data %}
 <div class="tab-panel" id="tab-charts">
-    <h2>Flight Data Charts</h2>
+    <h2>Visualizations &amp; Charts</h2>
 
-    {% if chart_data.get('noise_spectra') %}
-    <div class="chart-box">
-        <h3>Gyro Noise Spectrum</h3>
-        <div id="chart-noise-spectrum" class="chart-container"></div>
+    <!-- ---- Section: Configuration (always available from CLI) ---- -->
+    <div class="chart-section">
+        <h3 class="chart-section-title">Configuration Analysis</h3>
+        <div class="chart-grid">
+            {% if chart_data.get('rate_curves') %}
+            <div class="chart-box">
+                <h3>Rate Curves</h3>
+                <p class="chart-desc">Stick position (%) to rotation rate (deg/s) mapping for each axis.</p>
+                <div id="chart-rate-curves" class="chart-container"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('pid_radar') %}
+            <div class="chart-box">
+                <h3>PID Tune Shape</h3>
+                <p class="chart-desc">Your PID values compared to Betaflight defaults. Radar shape shows tune balance.</p>
+                <div id="chart-pid-radar" class="chart-container"></div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ---- Section: Noise Analysis (BBL) ---- -->
+    {% if chart_data.get('noise_spectra') or chart_data.get('pre_post_spectra') %}
+    <div class="chart-section">
+        <h3 class="chart-section-title">Noise Analysis (FFT)</h3>
+        <div class="chart-grid">
+            {% if chart_data.get('noise_spectra') %}
+            <div class="chart-box">
+                <h3>Gyro Noise Spectrum</h3>
+                <p class="chart-desc">Power spectral density of filtered gyro signal. Peaks indicate noise sources.</p>
+                <div id="chart-noise-spectrum" class="chart-container"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('pre_post_spectra') %}
+            <div class="chart-box">
+                <h3>Pre-Filter vs Post-Filter</h3>
+                <p class="chart-desc">How effectively your filters attenuate noise across the frequency range.</p>
+                <div id="chart-pre-post" class="chart-container"></div>
+            </div>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 
-    {% if chart_data.get('pre_post_spectra') %}
-    <div class="chart-box">
-        <h3>Pre-Filter vs Post-Filter</h3>
-        <div id="chart-pre-post" class="chart-container"></div>
+    <!-- ---- Section: PID Tracking (BBL) ---- -->
+    {% if chart_data.get('setpoint_vs_gyro') or chart_data.get('pid_contributions') or chart_data.get('error_histogram') %}
+    <div class="chart-section">
+        <h3 class="chart-section-title">PID Tracking Quality</h3>
+        <div class="chart-grid">
+            {% if chart_data.get('setpoint_vs_gyro') %}
+            <div class="chart-box chart-wide">
+                <h3>Setpoint vs Gyro Response</h3>
+                <p class="chart-desc">How closely the gyro output follows the pilot's stick input. Gaps = tracking error.</p>
+                <div id="chart-sp-gyro" class="chart-container chart-tall"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('pid_contributions') %}
+            <div class="chart-box">
+                <h3>PID Term Contributions</h3>
+                <p class="chart-desc">Relative RMS contribution of P, I, D, and feedforward terms per axis.</p>
+                <div id="chart-pid-contrib" class="chart-container"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('tracking_errors') %}
+            <div class="chart-box">
+                <h3>Tracking Error Summary</h3>
+                <p class="chart-desc">RMS and maximum tracking error per axis. Lower = better.</p>
+                <div id="chart-tracking" class="chart-container"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('error_histogram') %}
+            <div class="chart-box chart-wide">
+                <h3>PID Error Distribution</h3>
+                <p class="chart-desc">Histogram of gyro-setpoint error. Narrower = more precise tracking.</p>
+                <div id="chart-error-hist" class="chart-container"></div>
+            </div>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 
-    {% if chart_data.get('motor_balance') %}
-    <div class="chart-box">
-        <h3>Motor Balance</h3>
-        <div id="chart-motor-balance" class="chart-container"></div>
+    <!-- ---- Section: Motor & Power (BBL) ---- -->
+    {% if chart_data.get('motor_balance') or chart_data.get('motor_outputs') or chart_data.get('vbat_trace') %}
+    <div class="chart-section">
+        <h3 class="chart-section-title">Motors &amp; Power</h3>
+        <div class="chart-grid">
+            {% if chart_data.get('motor_balance') %}
+            <div class="chart-box">
+                <h3>Motor Balance</h3>
+                <p class="chart-desc">Average output per motor with standard deviation. Uneven = possible issue.</p>
+                <div id="chart-motor-balance" class="chart-container"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('motor_outputs') %}
+            <div class="chart-box chart-wide">
+                <h3>Motor Outputs Over Time</h3>
+                <p class="chart-desc">All 4 motor output traces. Look for divergence and saturation.</p>
+                <div id="chart-motor-time" class="chart-container chart-tall"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('vbat_trace') %}
+            <div class="chart-box">
+                <h3>Battery Voltage</h3>
+                <p class="chart-desc">Voltage sag during flight. Steep drops indicate high-current events.</p>
+                <div id="chart-vbat" class="chart-container"></div>
+            </div>
+            {% endif %}
+
+            {% if chart_data.get('throttle_trace') %}
+            <div class="chart-box">
+                <h3>Throttle Input</h3>
+                <p class="chart-desc">Pilot throttle trace throughout the flight.</p>
+                <div id="chart-throttle" class="chart-container"></div>
+            </div>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 
-    {% if chart_data.get('pid_contributions') %}
-    <div class="chart-box">
-        <h3>PID Term Contributions</h3>
-        <div id="chart-pid-contrib" class="chart-container"></div>
-    </div>
-    {% endif %}
 </div>
 {% endif %}
 
@@ -323,6 +496,14 @@
         navigator.clipboard.writeText(text).then(() => {
             showToast('CLI commands copied!');
         });
+    }
+    function copyPresetCli() {
+        const el = document.getElementById('preset-cli-script');
+        if (el) {
+            navigator.clipboard.writeText(el.textContent).then(() => {
+                showToast('Preset CLI copied!');
+            });
+        }
     }
     function copyText(btn) {
         navigator.clipboard.writeText(btn.dataset.text).then(() => {

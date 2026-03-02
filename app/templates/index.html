@@ -21,6 +21,9 @@
 
 <div class="upload-card">
     <form action="/analyze" method="post" enctype="multipart/form-data" id="upload-form">
+
+        <!-- ==================== File Upload Section ==================== -->
+        <h3 class="section-title">Flight Data Files</h3>
         <div class="form-grid">
             <!-- CLI Dump -->
             <div class="form-group">
@@ -55,6 +58,121 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- ==================== Quad Profile Section ==================== -->
+        <h3 class="section-title" style="margin-top: 28px;">
+            Quad Profile <span class="optional">(optional &ndash; improves recommendations)</span>
+        </h3>
+        <p class="form-hint" style="margin-bottom: 14px;">
+            Provide your quad's hardware details for more accurate, context-aware analysis and tuning presets.
+        </p>
+
+        <div class="profile-grid">
+            <div class="form-group-sm">
+                <label for="frame_size">Frame Size</label>
+                <select name="frame_size" id="frame_size">
+                    <option value="">-- Select --</option>
+                    <option value="65mm">Tiny Whoop 65mm</option>
+                    <option value="75mm">Whoop 75mm</option>
+                    <option value="3inch">3" Micro / Toothpick</option>
+                    <option value="3inch_cinewhoop">3" CineWhoop</option>
+                    <option value="4inch">4" Micro</option>
+                    <option value="5inch">5" Freestyle</option>
+                    <option value="5inch_race">5" Race</option>
+                    <option value="6inch">6" Long Range</option>
+                    <option value="7inch">7" Long Range</option>
+                    <option value="8inch_plus">8"+ X-Class</option>
+                </select>
+            </div>
+            <div class="form-group-sm">
+                <label for="prop_size">Prop Size</label>
+                <input type="text" name="prop_size" id="prop_size" placeholder="e.g. 5045, 3018, 51303">
+            </div>
+            <div class="form-group-sm">
+                <label for="battery_cells">Battery (S count)</label>
+                <select name="battery_cells" id="battery_cells">
+                    <option value="0">-- Select --</option>
+                    <option value="1">1S (3.7V)</option>
+                    <option value="2">2S (7.4V)</option>
+                    <option value="3">3S (11.1V)</option>
+                    <option value="4">4S (14.8V)</option>
+                    <option value="5">5S (18.5V)</option>
+                    <option value="6">6S (22.2V)</option>
+                </select>
+            </div>
+            <div class="form-group-sm">
+                <label for="motor_kv">Motor KV</label>
+                <input type="number" name="motor_kv" id="motor_kv" placeholder="e.g. 1960, 2400" min="0" max="30000">
+            </div>
+            <div class="form-group-sm">
+                <label for="weight_grams">AUW Weight (grams)</label>
+                <input type="number" name="weight_grams" id="weight_grams" placeholder="e.g. 650" min="0" max="10000">
+            </div>
+            <div class="form-group-sm">
+                <label for="fc_name">FC Board</label>
+                <input type="text" name="fc_name" id="fc_name" placeholder="e.g. SpeedyBee F405 V4">
+            </div>
+            <div class="form-group-sm">
+                <label for="esc_name">ESC</label>
+                <input type="text" name="esc_name" id="esc_name" placeholder="e.g. BLHeli_32 55A 4in1">
+            </div>
+            <div class="form-group-sm">
+                <label for="flying_style">Flying Style</label>
+                <select name="flying_style" id="flying_style">
+                    <option value="freestyle">Freestyle</option>
+                    <option value="cinematic">Cinematic / Smooth</option>
+                    <option value="racing">Racing</option>
+                    <option value="long_range">Long Range / Cruise</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ==================== Tuning Preset Section ==================== -->
+        <h3 class="section-title" style="margin-top: 28px;">
+            Tuning Preset <span class="optional">(optional)</span>
+        </h3>
+        <p class="form-hint" style="margin-bottom: 14px;">
+            Choose a tuning aggression level. The analyzer will compare your current tune against the selected preset
+            and provide specific recommendations to match it.
+        </p>
+
+        <div class="preset-selector">
+            <label class="preset-card selected" data-level="none">
+                <input type="radio" name="preset_level" value="none" checked>
+                <div class="preset-content">
+                    <span class="preset-name">None</span>
+                    <span class="preset-desc">Analyze only &ndash; no preset comparison</span>
+                </div>
+            </label>
+            <label class="preset-card" data-level="low">
+                <input type="radio" name="preset_level" value="low">
+                <div class="preset-content">
+                    <span class="preset-name">Low</span>
+                    <span class="preset-desc">Smooth &amp; gentle. Great for cinematic and beginners.</span>
+                </div>
+            </label>
+            <label class="preset-card" data-level="medium">
+                <input type="radio" name="preset_level" value="medium">
+                <div class="preset-content">
+                    <span class="preset-name">Medium</span>
+                    <span class="preset-desc">Balanced response for everyday freestyle flying.</span>
+                </div>
+            </label>
+            <label class="preset-card" data-level="high">
+                <input type="radio" name="preset_level" value="high">
+                <div class="preset-content">
+                    <span class="preset-name">High</span>
+                    <span class="preset-desc">Aggressive response. Snappy handling. Motors may run warmer.</span>
+                </div>
+            </label>
+            <label class="preset-card" data-level="ultra">
+                <input type="radio" name="preset_level" value="ultra">
+                <div class="preset-content">
+                    <span class="preset-name">Ultra</span>
+                    <span class="preset-desc">Maximum authority. Racing. Requires clean build.</span>
+                </div>
+            </label>
         </div>
 
         <div class="form-actions">
@@ -132,6 +250,14 @@
             const input = zone.querySelector('input');
             input.files = e.dataTransfer.files;
             input.dispatchEvent(new Event('change'));
+        });
+    });
+
+    // Preset card selection styling
+    document.querySelectorAll('.preset-card input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+            radio.closest('.preset-card').classList.add('selected');
         });
     });
 </script>
