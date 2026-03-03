@@ -21,6 +21,18 @@ from .analyzers.general_analyzer import GeneralAnalyzer
 from .analyzers.noise_analyzer import NoiseAnalyzer
 from .analyzers.motor_analyzer import MotorAnalyzer
 from .analyzers.tracking_analyzer import TrackingAnalyzer
+from .analyzers.step_response_analyzer import StepResponseAnalyzer
+from .analyzers.motor_health_analyzer import MotorHealthAnalyzer
+from .analyzers.tpa_analyzer import TPAAnalyzer
+from .analyzers.prop_wash_analyzer import PropWashAnalyzer
+from .analyzers.dynamic_idle_analyzer import DynamicIdleAnalyzer
+from .analyzers.anti_gravity_analyzer import AntiGravityAnalyzer
+from .analyzers.iterm_buildup_analyzer import ITermBuildupAnalyzer
+from .analyzers.feedforward_analyzer import FeedForwardAnalyzer
+from .analyzers.thrust_linearization_analyzer import ThrustLinearizationAnalyzer
+from .analyzers.stick_movement_analyzer import StickMovementAnalyzer
+from .analyzers.throttle_axis_analyzer import ThrottleAxisAnalyzer
+from .analyzers.pid_contribution_analyzer import PIDContributionAnalyzer
 from .generators.cli_generator import CLIGenerator
 from .knowledge.best_practices import AnalysisReport
 from .knowledge.presets import QuadProfile, get_preset
@@ -73,6 +85,18 @@ def run_analysis(
             NoiseAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
             MotorAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
             TrackingAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            StepResponseAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            MotorHealthAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            TPAAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            PropWashAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            DynamicIdleAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            AntiGravityAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            ITermBuildupAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            FeedForwardAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            ThrustLinearizationAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            StickMovementAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            ThrottleAxisAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
+            PIDContributionAnalyzer().analyze_flight_data(flight_data, bbl_header, report)
 
     # ---- Preset comparison (if requested) ----
     preset_data = None
@@ -84,9 +108,8 @@ def run_analysis(
             if preset_data:
                 from .knowledge.presets import generate_preset_cli
                 preset_cli = generate_preset_cli(
-                    frame_class, quad_profile.preset_level,
-                    active_pid_profile=cli_data.active_pid_profile,
-                    active_rate_profile=cli_data.active_rate_profile,
+                    preset_data,
+                    pid_profile=cli_data.active_pid_profile,
                 )
 
     # ---- Generate CLI commands ----
@@ -146,6 +169,14 @@ def _prepare_chart_data(report: AnalysisReport, flight_data, cli_data=None) -> d
     if pre_post_spectra:
         charts["pre_post_spectra"] = pre_post_spectra
 
+    # RPM harmonics for chart overlay
+    rpm_finding = next(
+        (f.data for f in report.findings
+         if f.data and "harmonics_hz" in f.data), None
+    )
+    if rpm_finding:
+        charts["rpm_harmonics"] = rpm_finding.get("harmonics_hz", [])
+
     motor_findings = [f.data for f in report.findings if f.data and "motor_means" in f.data]
     if motor_findings:
         charts["motor_balance"] = motor_findings[0]
@@ -161,6 +192,84 @@ def _prepare_chart_data(report: AnalysisReport, flight_data, cli_data=None) -> d
     motor_percentiles = [f.data for f in report.findings if f.data and "percentiles" in f.data]
     if motor_percentiles:
         charts["motor_percentiles"] = motor_percentiles
+
+    # New analyzers chart data
+    step_response_data = [
+        f.data for f in report.findings
+        if f.data and f.data.get("type") == "step_response"
+    ]
+    if step_response_data:
+        charts["step_response"] = step_response_data
+
+    motor_health_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "motor_health"), None
+    )
+    if motor_health_data:
+        charts["motor_health"] = motor_health_data
+
+    tpa_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "tpa_analysis"), None
+    )
+    if tpa_data:
+        charts["tpa_analysis"] = tpa_data
+
+    prop_wash_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "prop_wash_analysis"), None
+    )
+    if prop_wash_data:
+        charts["prop_wash"] = prop_wash_data
+
+    anti_gravity_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "anti_gravity"), None
+    )
+    if anti_gravity_data:
+        charts["anti_gravity"] = anti_gravity_data
+
+    iterm_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "iterm_buildup"), None
+    )
+    if iterm_data:
+        charts["iterm_buildup"] = iterm_data
+
+    ff_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "feedforward_analysis"), None
+    )
+    if ff_data:
+        charts["feedforward"] = ff_data
+
+    thrust_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "thrust_linearization"), None
+    )
+    if thrust_data:
+        charts["thrust_linearization"] = thrust_data
+
+    stick_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "stick_movement"), None
+    )
+    if stick_data:
+        charts["stick_movement"] = stick_data
+
+    throttle_axis_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "throttle_axis"), None
+    )
+    if throttle_axis_data:
+        charts["throttle_axis"] = throttle_axis_data
+
+    pid_contrib_data = next(
+        (f.data for f in report.findings
+         if f.data and f.data.get("type") == "pid_contribution"), None
+    )
+    if pid_contrib_data:
+        charts["pid_contribution"] = pid_contrib_data
 
     # ---- Time-series from flight data ----
     if flight_data:
