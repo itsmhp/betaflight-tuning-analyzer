@@ -1,8 +1,13 @@
 # Betaflight Tuning Analyzer
 
-A web application for analyzing drone tuning on **Betaflight** firmware. Upload your CLI dump and blackbox log — the app delivers comprehensive tuning recommendations with ready-to-paste CLI commands.
+Analyze your drone tuning on **Betaflight** firmware. Upload your CLI dump and blackbox log — the app delivers comprehensive tuning recommendations with ready-to-paste CLI commands.
+
+Available in **two modes**:
+- 🖥️ **Desktop GUI** (Windows `.exe`) — native window, no browser, no Python needed
+- 🌐 **Web App** — run locally or deploy to Render.com
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![PySide6](https://img.shields.io/badge/PySide6-6.6%2B-41cd52)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 ![Betaflight](https://img.shields.io/badge/Betaflight-4.x-orange)
 
@@ -16,41 +21,47 @@ A web application for analyzing drone tuning on **Betaflight** firmware. Upload 
 | **Phase 2** | BBL header – cross-check blackbox configuration |
 | **Phase 3** | Flight data – FFT noise, motor balance, PID tracking |
 
-**New — Quad Profile & Tuning Presets:**
+**Quad Profile & Tuning Presets:**
 - Provide your quad hardware (frame size, props, battery, motors, weight) for context-aware recommendations
-- Choose a tuning preset level (Low / Medium / High / Ultra) like KISS firmware — get a ready-to-paste CLI script to match that tune style
+- Choose a tuning preset level (Low / Medium / High / Ultra) — get a ready-to-paste CLI script to match that tune style
 
 **Output:**
 - Tuning score (0–100)
 - Findings organized by category (Error / Warning / Info)
 - Ready-to-paste CLI commands for Betaflight CLI
+- Interactive charts: rate curves, noise spectrum, PID tracking, motor balance, and more
 
 ---
 
-## How to Use
+## Option 1 — Desktop App (Windows .exe)
 
-### 1. Get Your CLI Dump
-1. Open **Betaflight Configurator**
-2. Connect to your flight controller
-3. Go to the **CLI** tab → type `dump all` → Enter
-4. Click **"Save to File"**
+> No Python, no browser, no installation needed. Just download and run.
 
-### 2. Get Your Blackbox Log
-- Copy the `.bbl` file from SD card or onboard flash to your computer
+### Download
 
-### 3. Upload to the App
-- Open `http://localhost:8000`
-- Upload CLI dump (required) + BBL log (optional)
-- Optionally fill in your quad profile and select a tuning preset
-- Click **Analyze Tuning**
+👉 **[Download latest release](https://github.com/itsmhp/betaflight-tuning-analyzer/releases/latest)**
+
+Download `BetaflightTuningAnalyzer.exe` from the Assets section and run it directly.
+
+### Usage
+1. Double-click `BetaflightTuningAnalyzer.exe`
+2. A native desktop window opens (no browser needed)
+3. Select your CLI dump file (required) and `.bbl` blackbox log (optional)
+4. Fill in your quad profile and choose a tuning preset if desired
+5. Click **Analyze Tuning** — results appear with score, findings, and charts
+
+### blackbox_decode (Optional, for flight data charts)
+To unlock FFT noise analysis and motor data from `.bbl` files:
+1. Download [blackbox-tools](https://github.com/betaflight/blackbox-tools/releases)
+2. Place `blackbox_decode.exe` next to `BetaflightTuningAnalyzer.exe`
 
 ---
 
-## Local Installation
+## Option 2 — Web App (Local / Server)
 
 ### Prerequisites
 - Python 3.10+
-- `blackbox_decode` (optional, for full flight data analysis)
+- `blackbox_decode` (optional)
 
 ### Setup
 ```bash
@@ -61,11 +72,20 @@ cd betaflight-tuning-analyzer
 # Install dependencies
 pip install -r requirements.txt
 
-# Run
+# Run web mode
 python run.py
 ```
 
 Open your browser to `http://127.0.0.1:8000`
+
+### Run Desktop GUI from source
+```bash
+# Install GUI dependencies (PySide6 + matplotlib)
+pip install -r requirements.txt
+
+# Run native desktop window
+python run_gui.py
+```
 
 ### blackbox_decode (Optional)
 For FFT noise analysis & motor data from `.bbl` files:
@@ -74,15 +94,26 @@ For FFT noise analysis & motor data from `.bbl` files:
 
 ---
 
-## Standalone Executable
+## How to Get Your Files
 
-A pre-built single-file `.exe` for Windows is available (built with PyInstaller):
+### CLI Dump
+1. Open **Betaflight Configurator** → connect your FC
+2. Go to **CLI** tab → type `dump all` → Enter
+3. Click **"Save to File"**
+
+### Blackbox Log
+- Copy the `.bbl` file from SD card or onboard flash to your computer
+
+---
+
+## Build .exe from Source
 
 ```bash
-python -m PyInstaller betaflight_analyzer.spec --clean
+pip install pyinstaller
+python -m PyInstaller betaflight_analyzer_gui.spec --clean
 ```
 
-The output will be in `dist/betaflight_analyzer.exe`. Run it and open `http://127.0.0.1:8000`.
+Output: `dist/BetaflightTuningAnalyzer.exe`
 
 ---
 
@@ -100,11 +131,14 @@ This app is configured for one-click deploy to [Render.com](https://render.com) 
 
 ## Tech Stack
 
-- **Backend:** Python, FastAPI, uvicorn
-- **Templating:** Jinja2
-- **Analysis:** NumPy, SciPy (FFT), Pandas
-- **Charts:** Plotly.js (client-side)
-- **Deployment:** Render.com / PyInstaller (exe)
+| Component | Technology |
+|-----------|------------|
+| Desktop GUI | PySide6 (Qt6), matplotlib |
+| Web backend | Python, FastAPI, uvicorn |
+| Templating | Jinja2 |
+| Analysis | NumPy, SciPy (FFT), Pandas |
+| Web charts | Plotly.js |
+| Build | PyInstaller |
 
 ---
 
