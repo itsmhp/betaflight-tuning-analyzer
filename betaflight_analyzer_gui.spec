@@ -39,7 +39,7 @@ a = Analysis(
         'app.generators', 'app.generators.cli_generator',
         'app.knowledge', 'app.knowledge.best_practices', 'app.knowledge.presets',
         # gui modules
-        'gui', 'gui.style', 'gui.worker', 'gui.charts',
+        'gui', 'gui.style', 'gui.worker', 'gui.charts', 'gui.i18n',
         'gui.pages', 'gui.pages.upload_page', 'gui.pages.results_page',
         'gui.main_window',
         # PySide6 essentials

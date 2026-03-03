@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.knowledge.best_practices import Severity
+from gui.i18n import t
 
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -157,7 +158,7 @@ def _finding_card(finding) -> QFrame:
         cmd_layout.addWidget(cmd_text)
         cmd_layout.addStretch()
 
-        copy_btn = QPushButton("Copy")
+        copy_btn = QPushButton(t("copy_btn"))
         copy_btn.setObjectName("copy_btn")
         copy_btn.setFixedWidth(60)
         cmds = "\n".join(finding.cli_commands)
@@ -177,7 +178,7 @@ def _scrollable_findings(findings: list) -> QWidget:
     layout.setSpacing(10)
 
     if not findings:
-        empty = QLabel("No findings in this category.")
+        empty = QLabel(t("no_findings"))
         empty.setStyleSheet("color:#606080;font-style:italic;")
         layout.addWidget(empty)
     else:
@@ -237,13 +238,13 @@ class ResultsPage(QWidget):
         info_col = QVBoxLayout()
         info_col.setSpacing(4)
 
-        title_lbl = QLabel("Analysis Results")
+        title_lbl = QLabel(t("results_title"))
         title_lbl.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         title_lbl.setStyleSheet("color:#ffffff;")
         info_col.addWidget(title_lbl)
 
         if cli_data:
-            craft = cli_data.craft_name or "Unknown Craft"
+            craft = cli_data.craft_name or t("results_unknown_craft")
             board = cli_data.board_name or "?"
             fw    = cli_data.firmware_version or "?"
             craft_lbl = QLabel(f"{craft}  •  {board}  •  Betaflight {fw}")
@@ -255,13 +256,13 @@ class ResultsPage(QWidget):
         pills.setSpacing(8)
         pills.setContentsMargins(0, 4, 0, 0)
         for text, style in [
-            (f"{report.error_count + report.critical_count} Errors",
+            (t("results_errors").replace("{n}", str(report.error_count + report.critical_count)),
              "background:#3d0a0a;color:#ff6b6b;border:1px solid #7d2020;"),
-            (f"{report.warning_count} Warnings",
+            (t("results_warnings").replace("{n}", str(report.warning_count)),
              "background:#3d2d00;color:#ffc107;border:1px solid #7d5a00;"),
-            (f"{report.info_count} Info",
+            (t("results_info").replace("{n}", str(report.info_count)),
              "background:#00243d;color:#64b5f6;border:1px solid #0a4f7d;"),
-            (f"{len(report.findings)} Total",
+            (t("results_total").replace("{n}", str(len(report.findings))),
              "background:#1a1a38;color:#c0c0e0;border:1px solid #2a2a5a;"),
         ]:
             pl = QLabel(text)
@@ -283,7 +284,7 @@ class ResultsPage(QWidget):
         tabs.setMinimumHeight(480)
 
         # Overview tab
-        tabs.addTab(self._make_overview_tab(report, cli_data), "Overview")
+        tabs.addTab(self._make_overview_tab(report, cli_data), t("tab_overview"))
 
         # Per-category tabs
         for cat_name, findings in r.get("findings_by_category", {}).items():
@@ -293,17 +294,17 @@ class ResultsPage(QWidget):
             )
 
         # CLI Commands tab
-        tabs.addTab(self._make_cli_tab(r), "CLI Commands")
+        tabs.addTab(self._make_cli_tab(r), t("tab_cli"))
 
         # Charts tab
         if chart_data:
-            tabs.addTab(self._make_charts_tab(chart_data), "Charts")
+            tabs.addTab(self._make_charts_tab(chart_data), t("tab_charts"))
 
         vbox.addWidget(tabs, 1)
 
         # ── Back button ───────────────────────────────────────────────────
         back_row = QHBoxLayout()
-        back_btn = QPushButton("← Analyze Another File")
+        back_btn = QPushButton(t("back_btn"))
         back_btn.setObjectName("secondary")
         back_btn.setMaximumWidth(220)
         back_btn.clicked.connect(self.back_requested.emit)
@@ -331,7 +332,7 @@ class ResultsPage(QWidget):
         critical = [f for f in report.findings
                     if f.severity in (Severity.CRITICAL, Severity.ERROR)]
         if critical:
-            sec = self._section("Issues Requiring Attention", "#ef5350")
+            sec = self._section(t("overview_issues"), "#ef5350")
             layout.addWidget(sec)
             for f in critical:
                 layout.addWidget(_finding_card(f))
@@ -339,7 +340,7 @@ class ResultsPage(QWidget):
         # Warnings
         warnings = [f for f in report.findings if f.severity == Severity.WARNING]
         if warnings:
-            sec = self._section(f"Warnings ({len(warnings)})", "#ffc107")
+            sec = self._section(t("overview_warnings").replace("{n}", str(len(warnings))), "#ffc107")
             layout.addWidget(sec)
             for f in warnings:
                 layout.addWidget(_finding_card(f))
@@ -365,19 +366,19 @@ class ResultsPage(QWidget):
 
         # Toolbar
         toolbar = QHBoxLayout()
-        title = QLabel("Ready-to-Paste CLI Commands")
+        title = QLabel(t("cli_tab_title"))
         title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         title.setStyleSheet("color:#c0c0e0;")
         toolbar.addWidget(title)
         toolbar.addStretch()
 
-        copy_all = QPushButton("Copy All")
+        copy_all = QPushButton(t("cli_copy_all"))
         copy_all.setObjectName("copy_btn")
         copy_all.setFixedWidth(90)
         copy_all.clicked.connect(lambda: QApplication.clipboard().setText(cli_script))
         toolbar.addWidget(copy_all)
 
-        diff_count = QLabel(f"{len(cli_diff)} changes")
+        diff_count = QLabel(t("cli_changes").replace("{n}", str(len(cli_diff))))
         diff_count.setStyleSheet("color:#6060a0;font-size:11px;")
         toolbar.addWidget(diff_count)
         layout.addLayout(toolbar)
@@ -385,11 +386,11 @@ class ResultsPage(QWidget):
         # Text area
         te = QTextEdit()
         te.setReadOnly(True)
-        te.setPlainText(cli_script if cli_script else "# No CLI commands generated.")
+        te.setPlainText(cli_script if cli_script else t("cli_empty"))
         te.setMinimumHeight(320)
         layout.addWidget(te, 1)
 
-        hint = QLabel("Paste this entire block into the Betaflight CLI tab, then type 'save'.")
+        hint = QLabel(t("cli_paste_hint"))
         hint.setObjectName("hint_label")
         hint.setWordWrap(True)
         layout.addWidget(hint)
@@ -418,7 +419,7 @@ class ResultsPage(QWidget):
         charts = build_all_charts(chart_data)
 
         if not charts:
-            lbl = QLabel("No chart data available. Upload a blackbox log for flight charts.")
+            lbl = QLabel(t("charts_empty"))
             lbl.setStyleSheet("color:#606080;font-style:italic;")
             layout.addWidget(lbl)
         else:
@@ -466,7 +467,7 @@ class ResultsPage(QWidget):
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(8)
 
-        title = QLabel("Configuration Summary")
+        title = QLabel(t("config_summary"))
         title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         title.setStyleSheet("color:#c0c0e0;")
         layout.addWidget(title)
@@ -476,11 +477,11 @@ class ResultsPage(QWidget):
         grid.setVerticalSpacing(6)
 
         fields = [
-            ("Board",     getattr(cli_data, "board_name", "?")),
-            ("Firmware",  getattr(cli_data, "firmware_version", "?")),
-            ("Craft",     getattr(cli_data, "craft_name", "?")),
-            ("PID Profile",  str(getattr(cli_data, "active_pid_profile", "?") or "?")),
-            ("Rate Profile", str(getattr(cli_data, "active_rate_profile", "?") or "?")),
+            (t("config_board"),        getattr(cli_data, "board_name", "?")),
+            (t("config_firmware"),     getattr(cli_data, "firmware_version", "?")),
+            (t("config_craft"),        getattr(cli_data, "craft_name", "?")),
+            (t("config_pid_profile"),  str(getattr(cli_data, "active_pid_profile", "?") or "?")),
+            (t("config_rate_profile"), str(getattr(cli_data, "active_rate_profile", "?") or "?")),
         ]
         for i, (lbl_text, val_text) in enumerate(fields):
             row, col = divmod(i, 2)

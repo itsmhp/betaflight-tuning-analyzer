@@ -3,28 +3,33 @@ Upload / home page widget.
 
 Provides file pickers for CLI dump and optional BBL file,
 a quad-profile form, preset selection, and the Analyze button.
+Includes a language selector that updates all UI strings live.
 """
 from __future__ import annotations
 
 from typing import Optional
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QPushButton, QLabel, QLineEdit, QSpinBox, QComboBox,
-    QGroupBox, QFileDialog, QFrame, QScrollArea,
-    QSizePolicy, QButtonGroup,
+    QGroupBox, QFileDialog, QScrollArea,
+    QSizePolicy,
 )
 
 from app.knowledge.presets import QuadProfile
+from gui.i18n import t, set_lang, current_lang, LANGUAGE_OPTIONS
+
 
 
 class UploadPage(QWidget):
     """Form page for selecting files and entering quad profile data."""
 
     analyze_requested = Signal(str, object, object)  # cli_path, bbl_path|None, QuadProfile
+    # Emitted when the user changes language so MainWindow can refresh other pages
+    language_changed = Signal(str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -42,7 +47,6 @@ class UploadPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Scrollable content area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -55,43 +59,65 @@ class UploadPage(QWidget):
         layout.setSpacing(20)
         scroll.setWidget(inner)
 
-        # ── Hero header ──────────────────────────────────────────────────
+        # ── Hero header (title + language selector) ──────────────────────
         hero = QWidget()
         hero_layout = QVBoxLayout(hero)
         hero_layout.setContentsMargins(0, 0, 0, 8)
         hero_layout.setSpacing(4)
 
-        title = QLabel("Betaflight Tuning Analyzer")
-        title.setObjectName("title_label")
-        title.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
 
-        subtitle = QLabel("Upload your CLI dump and optional blackbox log for comprehensive tuning analysis.")
-        subtitle.setObjectName("subtitle_label")
-        subtitle.setWordWrap(True)
+        self.title_lbl = QLabel(t("app_title"))
+        self.title_lbl.setObjectName("title_label")
+        self.title_lbl.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        top_row.addWidget(self.title_lbl)
+        top_row.addStretch()
 
-        hero_layout.addWidget(title)
-        hero_layout.addWidget(subtitle)
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(6)
+        self.lang_label = QLabel(t("language_label") + ":")
+        self.lang_label.setStyleSheet("color:#7070a0;font-size:12px;")
+        self.lang_combo = QComboBox()
+        self.lang_combo.setFixedWidth(160)
+        self.lang_combo.setToolTip("Select language / Pilih Bahasa / Idioma / Sprache")
+        for code, name in LANGUAGE_OPTIONS:
+            self.lang_combo.addItem(name, code)
+        current = current_lang()
+        for i, (code, _) in enumerate(LANGUAGE_OPTIONS):
+            if code == current:
+                self.lang_combo.setCurrentIndex(i)
+                break
+        self.lang_combo.currentIndexChanged.connect(self._on_lang_change)
+        lang_row.addWidget(self.lang_label)
+        lang_row.addWidget(self.lang_combo)
+        top_row.addLayout(lang_row)
+        hero_layout.addLayout(top_row)
+
+        self.subtitle_lbl = QLabel(t("app_subtitle"))
+        self.subtitle_lbl.setObjectName("subtitle_label")
+        self.subtitle_lbl.setWordWrap(True)
+        hero_layout.addWidget(self.subtitle_lbl)
         layout.addWidget(hero)
 
         # ── File selection ────────────────────────────────────────────────
-        files_box = QGroupBox("Flight Data Files")
-        files_grid = QGridLayout(files_box)
+        self.files_box = QGroupBox(t("files_group"))
+        files_grid = QGridLayout(self.files_box)
         files_grid.setSpacing(12)
 
-        # CLI file
         cli_top = QHBoxLayout()
-        cli_title = QLabel("CLI Dump File")
-        cli_title.setObjectName("section_label")
-        cli_req = QLabel("(required)")
-        cli_req.setStyleSheet("color: #ef5350; font-size: 11px;")
-        cli_top.addWidget(cli_title)
-        cli_top.addWidget(cli_req)
+        self.cli_title_lbl = QLabel(t("cli_section"))
+        self.cli_title_lbl.setObjectName("section_label")
+        self.cli_req_lbl = QLabel(t("cli_required"))
+        self.cli_req_lbl.setStyleSheet("color: #ef5350; font-size: 11px;")
+        cli_top.addWidget(self.cli_title_lbl)
+        cli_top.addWidget(self.cli_req_lbl)
         cli_top.addStretch()
 
-        self.cli_hint = QLabel("Betaflight CLI 'dump all' output (.txt / .log / .cli)")
+        self.cli_hint = QLabel(t("cli_hint"))
         self.cli_hint.setObjectName("hint_label")
 
-        self.cli_btn = QPushButton("  Click to select CLI dump file…")
+        self.cli_btn = QPushButton(t("cli_btn"))
         self.cli_btn.setObjectName("file_btn")
         self.cli_btn.setMinimumHeight(56)
         self.cli_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -105,20 +131,19 @@ class UploadPage(QWidget):
         files_grid.addWidget(self.cli_btn, 2, 0)
         files_grid.addWidget(self.cli_name_label, 3, 0)
 
-        # BBL file
         bbl_top = QHBoxLayout()
-        bbl_title = QLabel("Blackbox Log File")
-        bbl_title.setObjectName("section_label")
-        bbl_opt = QLabel("(optional)")
-        bbl_opt.setStyleSheet("color: #606080; font-size: 11px;")
-        bbl_top.addWidget(bbl_title)
-        bbl_top.addWidget(bbl_opt)
+        self.bbl_title_lbl = QLabel(t("bbl_section"))
+        self.bbl_title_lbl.setObjectName("section_label")
+        self.bbl_opt_lbl = QLabel(t("bbl_optional"))
+        self.bbl_opt_lbl.setStyleSheet("color: #606080; font-size: 11px;")
+        bbl_top.addWidget(self.bbl_title_lbl)
+        bbl_top.addWidget(self.bbl_opt_lbl)
         bbl_top.addStretch()
 
-        self.bbl_hint = QLabel("Blackbox flight log (.bbl / .bfl / .csv)")
+        self.bbl_hint = QLabel(t("bbl_hint"))
         self.bbl_hint.setObjectName("hint_label")
 
-        self.bbl_btn = QPushButton("  Click to select BBL file (optional)…")
+        self.bbl_btn = QPushButton(t("bbl_btn"))
         self.bbl_btn.setObjectName("file_btn")
         self.bbl_btn.setMinimumHeight(56)
         self.bbl_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -128,9 +153,9 @@ class UploadPage(QWidget):
         self.bbl_name_label.setObjectName("hint_label")
 
         bbl_clear_layout = QHBoxLayout()
-        self.bbl_clear_btn = QPushButton("✕ Clear BBL")
+        self.bbl_clear_btn = QPushButton(t("bbl_clear"))
         self.bbl_clear_btn.setObjectName("secondary")
-        self.bbl_clear_btn.setMaximumWidth(130)
+        self.bbl_clear_btn.setMaximumWidth(140)
         self.bbl_clear_btn.setVisible(False)
         self.bbl_clear_btn.clicked.connect(self._clear_bbl)
         bbl_clear_layout.addWidget(self.bbl_name_label)
@@ -141,15 +166,13 @@ class UploadPage(QWidget):
         files_grid.addWidget(self.bbl_hint, 1, 1)
         files_grid.addWidget(self.bbl_btn, 2, 1)
         files_grid.addLayout(bbl_clear_layout, 3, 1)
-
         files_grid.setColumnStretch(0, 1)
         files_grid.setColumnStretch(1, 1)
-
-        layout.addWidget(files_box)
+        layout.addWidget(self.files_box)
 
         # ── Quad profile ─────────────────────────────────────────────────
-        profile_box = QGroupBox("Quad Profile  (optional – improves recommendations)")
-        profile_grid = QGridLayout(profile_box)
+        self.profile_box = QGroupBox(t("profile_group"))
+        profile_grid = QGridLayout(self.profile_box)
         profile_grid.setSpacing(10)
         profile_grid.setContentsMargins(14, 16, 14, 14)
 
@@ -158,122 +181,197 @@ class UploadPage(QWidget):
             lb.setStyleSheet("color: #a0a0d0; font-size: 12px;")
             return lb
 
-        # Row 0: Frame size, Prop size
-        profile_grid.addWidget(_lbl("Frame Size"), 0, 0)
+        self._lbl_frame = _lbl(t("frame_size_lbl"))
+        profile_grid.addWidget(self._lbl_frame, 0, 0)
         self.frame_size = QComboBox()
-        self.frame_size.addItems([
-            "", "65mm (Tiny Whoop)", "75mm (Whoop)", "3\" Micro / Toothpick",
-            "3\" CineWhoop", "4\" Micro", "5\" Freestyle",
-            "5\" Race", "6\" Long Range", "7\" Long Range", "8\"+ X-Class",
-        ])
-        self._frame_values = [
-            "", "65mm", "75mm", "3inch", "3inch_cinewhoop",
-            "4inch", "5inch", "5inch_race", "6inch", "7inch", "8inch_plus",
-        ]
+        self._update_frame_options()
         profile_grid.addWidget(self.frame_size, 0, 1)
 
-        profile_grid.addWidget(_lbl("Prop Size"), 0, 2)
+        self._lbl_prop = _lbl(t("prop_size_lbl"))
+        profile_grid.addWidget(self._lbl_prop, 0, 2)
         self.prop_size = QLineEdit()
-        self.prop_size.setPlaceholderText("e.g. 5045, 3018, 51303")
+        self.prop_size.setPlaceholderText(t("prop_size_placeholder"))
         profile_grid.addWidget(self.prop_size, 0, 3)
 
-        # Row 1: Battery, Motor KV
-        profile_grid.addWidget(_lbl("Battery (S count)"), 1, 0)
+        self._lbl_battery = _lbl(t("battery_lbl"))
+        profile_grid.addWidget(self._lbl_battery, 1, 0)
         self.battery_cells = QComboBox()
-        self.battery_cells.addItems(["0 – Unknown", "1S", "2S", "3S", "4S", "5S", "6S"])
-        self._battery_values = [0, 1, 2, 3, 4, 5, 6]
+        self._update_battery_options()
         profile_grid.addWidget(self.battery_cells, 1, 1)
 
-        profile_grid.addWidget(_lbl("Motor KV"), 1, 2)
+        self._lbl_kv = _lbl(t("motor_kv_lbl"))
+        profile_grid.addWidget(self._lbl_kv, 1, 2)
         self.motor_kv = QSpinBox()
         self.motor_kv.setRange(0, 30_000)
         self.motor_kv.setValue(0)
-        self.motor_kv.setSpecialValueText("Unknown")
+        self.motor_kv.setSpecialValueText("—")
         self.motor_kv.setSingleStep(100)
         profile_grid.addWidget(self.motor_kv, 1, 3)
 
-        # Row 2: Weight, FC name
-        profile_grid.addWidget(_lbl("AUW Weight (g)"), 2, 0)
+        self._lbl_weight = _lbl(t("weight_lbl"))
+        profile_grid.addWidget(self._lbl_weight, 2, 0)
         self.weight = QSpinBox()
         self.weight.setRange(0, 10_000)
         self.weight.setValue(0)
-        self.weight.setSpecialValueText("Unknown")
+        self.weight.setSpecialValueText("—")
         self.weight.setSingleStep(10)
         profile_grid.addWidget(self.weight, 2, 1)
 
-        profile_grid.addWidget(_lbl("FC Board"), 2, 2)
+        self._lbl_fc = _lbl(t("fc_lbl"))
+        profile_grid.addWidget(self._lbl_fc, 2, 2)
         self.fc_name = QLineEdit()
-        self.fc_name.setPlaceholderText("e.g. SpeedyBee F405 V4")
+        self.fc_name.setPlaceholderText(t("fc_placeholder"))
         profile_grid.addWidget(self.fc_name, 2, 3)
 
-        # Row 3: ESC, Flying style
-        profile_grid.addWidget(_lbl("ESC"), 3, 0)
+        self._lbl_esc = _lbl(t("esc_lbl"))
+        profile_grid.addWidget(self._lbl_esc, 3, 0)
         self.esc_name = QLineEdit()
-        self.esc_name.setPlaceholderText("e.g. BLHeli_32 55A 4in1")
+        self.esc_name.setPlaceholderText(t("esc_placeholder"))
         profile_grid.addWidget(self.esc_name, 3, 1)
 
-        profile_grid.addWidget(_lbl("Flying Style"), 3, 2)
+        self._lbl_style = _lbl(t("style_lbl"))
+        profile_grid.addWidget(self._lbl_style, 3, 2)
         self.flying_style = QComboBox()
-        self.flying_style.addItems(["Freestyle", "Cinematic / Smooth", "Racing", "Long Range / Cruise"])
-        self._style_values = ["freestyle", "cinematic", "racing", "long_range"]
+        self._update_style_options()
         profile_grid.addWidget(self.flying_style, 3, 3)
 
         for col in (1, 3):
             profile_grid.setColumnStretch(col, 1)
-        layout.addWidget(profile_box)
+        layout.addWidget(self.profile_box)
+
+        # Internal value lists — order mirrors the combo options
+        self._frame_values = [
+            "", "65mm", "75mm", "3inch", "3inch_cinewhoop",
+            "4inch", "5inch", "5inch_race", "6inch", "7inch", "8inch_plus",
+        ]
+        self._battery_values = [0, 1, 2, 3, 4, 5, 6]
+        self._style_values = ["freestyle", "cinematic", "racing", "long_range"]
 
         # ── Preset selection ─────────────────────────────────────────────
-        preset_box = QGroupBox("Tuning Preset  (optional)")
-        preset_layout = QVBoxLayout(preset_box)
+        self.preset_box = QGroupBox(t("preset_group"))
+        preset_layout = QVBoxLayout(self.preset_box)
         preset_layout.setSpacing(8)
 
-        preset_desc = QLabel(
-            "Choose a tuning aggression level. The analyzer will compare your tune against the preset."
-        )
-        preset_desc.setObjectName("hint_label")
-        preset_desc.setWordWrap(True)
-        preset_layout.addWidget(preset_desc)
+        self.preset_desc_lbl = QLabel(t("preset_desc"))
+        self.preset_desc_lbl.setObjectName("hint_label")
+        self.preset_desc_lbl.setWordWrap(True)
+        preset_layout.addWidget(self.preset_desc_lbl)
 
         presets_row = QHBoxLayout()
         presets_row.setSpacing(10)
         self._preset_buttons: dict[str, QPushButton] = {}
-        presets_info = [
-            ("None",   "none",   "Analyze only – no preset comparison"),
-            ("Low",    "low",    "Smooth & gentle. Great for cinematic."),
-            ("Medium", "medium", "Balanced for everyday freestyle."),
-            ("High",   "high",   "Aggressive, snappy. Motors run warmer."),
-            ("Ultra",  "ultra",  "Maximum authority. Racing builds only."),
-        ]
-        for name, key, tip in presets_info:
-            btn = self._make_preset_btn(name, tip)
+        self._preset_keys = ["none", "low", "medium", "high", "ultra"]
+        for key in self._preset_keys:
+            btn = self._make_preset_btn(key)
             self._preset_buttons[key] = btn
             btn.clicked.connect(lambda checked, k=key: self._select_preset(k))
             presets_row.addWidget(btn)
         preset_layout.addLayout(presets_row)
-        layout.addWidget(preset_box)
+        layout.addWidget(self.preset_box)
 
-        # Select 'none' by default
         self._select_preset("none")
 
         # ── Analyze button ────────────────────────────────────────────────
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        self.analyze_btn = QPushButton("  Analyze Tuning")
+        self.analyze_btn = QPushButton(t("analyze_btn"))
         self.analyze_btn.setMinimumWidth(200)
         self.analyze_btn.setMinimumHeight(44)
         self.analyze_btn.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         self.analyze_btn.clicked.connect(self._on_analyze)
         btn_row.addWidget(self.analyze_btn)
         layout.addLayout(btn_row)
-
         layout.addStretch()
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Language switching
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _on_lang_change(self, index: int) -> None:
+        code = self.lang_combo.itemData(index)
+        if code and code != current_lang():
+            set_lang(code)
+            self._apply_lang()
+            self.language_changed.emit(code)
+
+    def _apply_lang(self) -> None:
+        """Update all translatable UI strings to the current language."""
+        self.title_lbl.setText(t("app_title"))
+        self.subtitle_lbl.setText(t("app_subtitle"))
+        self.lang_label.setText(t("language_label") + ":")
+
+        self.files_box.setTitle(t("files_group"))
+        self.cli_title_lbl.setText(t("cli_section"))
+        self.cli_req_lbl.setText(t("cli_required"))
+        self.cli_hint.setText(t("cli_hint"))
+        self.bbl_title_lbl.setText(t("bbl_section"))
+        self.bbl_opt_lbl.setText(t("bbl_optional"))
+        self.bbl_hint.setText(t("bbl_hint"))
+        self.bbl_clear_btn.setText(t("bbl_clear"))
+
+        if not self._cli_path:
+            self.cli_btn.setText(t("cli_btn"))
+        if not self._bbl_path:
+            self.bbl_btn.setText(t("bbl_btn"))
+
+        self.profile_box.setTitle(t("profile_group"))
+        self._lbl_frame.setText(t("frame_size_lbl"))
+        self._lbl_prop.setText(t("prop_size_lbl"))
+        self.prop_size.setPlaceholderText(t("prop_size_placeholder"))
+        self._lbl_battery.setText(t("battery_lbl"))
+        self._lbl_kv.setText(t("motor_kv_lbl"))
+        self._lbl_weight.setText(t("weight_lbl"))
+        self._lbl_fc.setText(t("fc_lbl"))
+        self.fc_name.setPlaceholderText(t("fc_placeholder"))
+        self._lbl_esc.setText(t("esc_lbl"))
+        self.esc_name.setPlaceholderText(t("esc_placeholder"))
+        self._lbl_style.setText(t("style_lbl"))
+
+        fi = self.frame_size.currentIndex()
+        self._update_frame_options()
+        self.frame_size.setCurrentIndex(fi)
+
+        bi = self.battery_cells.currentIndex()
+        self._update_battery_options()
+        self.battery_cells.setCurrentIndex(bi)
+
+        si = self.flying_style.currentIndex()
+        self._update_style_options()
+        self.flying_style.setCurrentIndex(si)
+
+        self.preset_box.setTitle(t("preset_group"))
+        self.preset_desc_lbl.setText(t("preset_desc"))
+        for key in self._preset_keys:
+            self._preset_buttons[key].setText(f"{t(f'preset_{key}')}\n{t(f'preset_{key}_tip')}")
+
+        self.analyze_btn.setText(t("analyze_btn"))
+
+    def _update_frame_options(self) -> None:
+        self.frame_size.clear()
+        self.frame_size.addItems([
+            "",
+            t("frame_65mm"), t("frame_75mm"), t("frame_3inch"), t("frame_3inch_cw"),
+            t("frame_4inch"), t("frame_5inch"), t("frame_5inch_race"),
+            t("frame_6inch"), t("frame_7inch"), t("frame_8inch"),
+        ])
+
+    def _update_battery_options(self) -> None:
+        self.battery_cells.clear()
+        self.battery_cells.addItems([t("battery_unknown"), "1S", "2S", "3S", "4S", "5S", "6S"])
+
+    def _update_style_options(self) -> None:
+        self.flying_style.clear()
+        self.flying_style.addItems([
+            t("style_freestyle"), t("style_cinematic"),
+            t("style_racing"),    t("style_longrange"),
+        ])
 
     # ──────────────────────────────────────────────────────────────────────
     # Helpers
     # ──────────────────────────────────────────────────────────────────────
 
-    def _make_preset_btn(self, name: str, desc: str) -> QPushButton:
-        btn = QPushButton(f"{name}\n{desc}")
+    def _make_preset_btn(self, key: str) -> QPushButton:
+        btn = QPushButton(f"{t(f'preset_{key}')}\n{t(f'preset_{key}_tip')}")
         btn.setObjectName("file_btn")
         btn.setMinimumHeight(68)
         btn.setFont(QFont("Segoe UI", 11))
@@ -300,7 +398,7 @@ class UploadPage(QWidget):
 
     def _pick_cli(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select CLI Dump File", "",
+            self, t("cli_section"), "",
             "CLI Dump (*.txt *.log *.cli);;All Files (*)"
         )
         if path:
@@ -309,12 +407,12 @@ class UploadPage(QWidget):
             self.cli_btn.setText(f"  {name}")
             self.cli_btn.setProperty("hasFile", "true")
             self.cli_btn.setStyle(self.cli_btn.style())
-            self.cli_name_label.setText(f"{path}")
+            self.cli_name_label.setText(path)
             self.cli_name_label.setStyleSheet("color: #6ee7b7; font-size: 11px;")
 
     def _pick_bbl(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Blackbox Log File", "",
+            self, t("bbl_section"), "",
             "Blackbox Log (*.bbl *.bfl *.csv);;All Files (*)"
         )
         if path:
@@ -323,13 +421,13 @@ class UploadPage(QWidget):
             self.bbl_btn.setText(f"  {name}")
             self.bbl_btn.setProperty("hasFile", "true")
             self.bbl_btn.setStyle(self.bbl_btn.style())
-            self.bbl_name_label.setText(f"{path}")
+            self.bbl_name_label.setText(path)
             self.bbl_name_label.setStyleSheet("color: #6ee7b7; font-size: 11px;")
             self.bbl_clear_btn.setVisible(True)
 
     def _clear_bbl(self) -> None:
         self._bbl_path = None
-        self.bbl_btn.setText("  Click to select BBL file (optional)…")
+        self.bbl_btn.setText(t("bbl_btn"))
         self.bbl_btn.setProperty("hasFile", "false")
         self.bbl_btn.setStyle(self.bbl_btn.style())
         self.bbl_name_label.setText("")
@@ -340,13 +438,13 @@ class UploadPage(QWidget):
             self.cli_btn.setStyleSheet(
                 "QPushButton#file_btn { border-color: #ef5350; background-color: #1a080a; }"
             )
-            self.cli_name_label.setText("  Please select a CLI dump file first.")
+            self.cli_name_label.setText(t("cli_missing_error"))
             self.cli_name_label.setStyleSheet("color: #ef5350; font-size: 11px;")
             return
 
-        idx_frame    = self.frame_size.currentIndex()
-        idx_battery  = self.battery_cells.currentIndex()
-        idx_style    = self.flying_style.currentIndex()
+        idx_frame   = self.frame_size.currentIndex()
+        idx_battery = self.battery_cells.currentIndex()
+        idx_style   = self.flying_style.currentIndex()
 
         profile = QuadProfile(
             frame_size    = self._frame_values[idx_frame] if idx_frame < len(self._frame_values) else "",
@@ -361,3 +459,4 @@ class UploadPage(QWidget):
         )
 
         self.analyze_requested.emit(self._cli_path, self._bbl_path, profile)
+

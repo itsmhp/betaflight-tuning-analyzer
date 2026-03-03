@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from gui.pages.upload_page import UploadPage
 from gui.pages.results_page import ResultsPage
 from gui.worker import AnalysisWorker
+from gui.i18n import t
 
 # Page indices
 PAGE_UPLOAD   = 0
@@ -36,12 +37,12 @@ class LoadingPage(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(20)
 
-        title = QLabel("Analyzing…")
-        title.setObjectName("loading_label")
-        title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title = QLabel(t("loading_title"))
+        self.title.setObjectName("loading_label")
+        self.title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.sub = QLabel("Parsing CLI dump and running analysis pipeline…")
+        self.sub = QLabel(t("loading_sub"))
         self.sub.setStyleSheet("color:#6060a0;font-size:13px;")
         self.sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -50,15 +51,15 @@ class LoadingPage(QWidget):
         self.progress.setFixedWidth(320)
         self.progress.setFixedHeight(12)
 
-        hint = QLabel("This may take a few seconds for large blackbox files.")
-        hint.setStyleSheet("color:#3a3a6a;font-size:11px;")
-        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hint = QLabel(t("loading_hint"))
+        self.hint.setStyleSheet("color:#3a3a6a;font-size:11px;")
+        self.hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         layout.addStretch()
-        layout.addWidget(title)
+        layout.addWidget(self.title)
         layout.addWidget(self.sub)
         layout.addWidget(self.progress, alignment=Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(hint)
+        layout.addWidget(self.hint)
         layout.addStretch()
 
 
@@ -67,7 +68,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Betaflight Tuning Analyzer")
+        self.setWindowTitle(t("window_title"))
         self.resize(1280, 860)
         self.setMinimumSize(900, 600)
 
@@ -86,6 +87,7 @@ class MainWindow(QMainWindow):
 
         # Connect signals
         self._upload_page.analyze_requested.connect(self._on_analyze)
+        self._upload_page.language_changed.connect(self._on_lang_changed)
 
         self._worker: Optional[AnalysisWorker] = None
 
@@ -134,11 +136,18 @@ class MainWindow(QMainWindow):
         err_lines = message.split("\n")[:2]
         from PySide6.QtWidgets import QMessageBox
         mb = QMessageBox(self)
-        mb.setWindowTitle("Analysis Error")
-        mb.setText(f"Analysis failed:\n{err_lines[0]}")
+        mb.setWindowTitle(t("error_title"))
+        mb.setText(f"{t('error_text')}\n{err_lines[0]}")
         mb.setDetailedText(message)
         mb.setIcon(QMessageBox.Icon.Critical)
         mb.exec()
+
+    def _on_lang_changed(self, code: str) -> None:
+        """Refresh translatable strings in non-upload pages."""
+        self.setWindowTitle(t("window_title"))
+        self._loading_page.title.setText(t("loading_title"))
+        self._loading_page.sub.setText(t("loading_sub"))
+        self._loading_page.hint.setText(t("loading_hint"))
 
     def _go_home(self) -> None:
         """Return to the upload page."""
