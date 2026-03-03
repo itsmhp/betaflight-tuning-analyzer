@@ -15,11 +15,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QFrame, QScrollArea,
     QTabWidget, QTextEdit, QSplitter, QSizePolicy,
-    QApplication,
+    QApplication, QFileDialog, QMessageBox,
 )
 
 from app.knowledge.best_practices import Severity
 from gui.i18n import t
+from gui.html_export import generate_html_report
 
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -302,7 +303,7 @@ class ResultsPage(QWidget):
 
         vbox.addWidget(tabs, 1)
 
-        # ── Back button ───────────────────────────────────────────────────
+        # ── Back button + Export ─────────────────────────────────────────
         back_row = QHBoxLayout()
         back_btn = QPushButton(t("back_btn"))
         back_btn.setObjectName("secondary")
@@ -310,6 +311,12 @@ class ResultsPage(QWidget):
         back_btn.clicked.connect(self.back_requested.emit)
         back_row.addWidget(back_btn)
         back_row.addStretch()
+
+        export_btn = QPushButton(t("export_html_btn"))
+        export_btn.setMaximumWidth(200)
+        export_btn.clicked.connect(lambda: self._export_html(r, chart_data))
+        back_row.addWidget(export_btn)
+
         vbox.addLayout(back_row)
 
     # ──────────────────────────────────────────────────────────────────────
@@ -444,6 +451,41 @@ class ResultsPage(QWidget):
 
         layout.addStretch()
         return outer
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Export
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _export_html(self, result: dict, chart_data: dict) -> None:
+        """Export analysis results to a standalone HTML file."""
+        cli_data = result.get("cli_data")
+        craft = getattr(cli_data, "craft_name", "report") or "report"
+        default_name = f"tuning_report_{craft}.html".replace(" ", "_")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            t("export_html_title"),
+            default_name,
+            "HTML Files (*.html);;All Files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            html = generate_html_report(result, chart_data)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(html)
+            QMessageBox.information(
+                self,
+                t("export_html_title"),
+                t("export_html_success").replace("{path}", path),
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                t("export_html_title"),
+                f"{t('export_html_fail')}\n{exc}",
+            )
 
     # ──────────────────────────────────────────────────────────────────────
     # Small helper widgets

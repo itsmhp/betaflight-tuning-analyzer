@@ -162,6 +162,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Copy button
         "copy_btn":             "Copy",
 
+        # Export
+        "export_html_btn":     "Export HTML Report",
+        "export_html_title":   "Export HTML Report",
+        "export_html_success": "Report saved to:\n{path}",
+        "export_html_fail":    "Failed to export report.",
+
         # Error dialog
         "error_title":          "Analysis Error",
         "error_text":           "Analysis failed:",
@@ -284,6 +290,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "copy_btn":             "Salin",
 
         # Error dialog
+        "export_html_btn":     "Ekspor Laporan HTML",
+        "export_html_title":   "Ekspor Laporan HTML",
+        "export_html_success": "Laporan disimpan ke:\n{path}",
+        "export_html_fail":    "Gagal mengekspor laporan.",
+
         "error_title":          "Error Analisis",
         "error_text":           "Analisis gagal:",
     },
@@ -405,6 +416,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "copy_btn":             "Copiar",
 
         # Error dialog
+        "export_html_btn":     "Exportar Informe HTML",
+        "export_html_title":   "Exportar Informe HTML",
+        "export_html_success": "Informe guardado en:\n{path}",
+        "export_html_fail":    "Error al exportar el informe.",
+
         "error_title":          "Error de Análisis",
         "error_text":           "El análisis falló:",
     },
@@ -526,6 +542,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "copy_btn":             "Kopieren",
 
         # Error dialog
+        "export_html_btn":     "HTML-Bericht exportieren",
+        "export_html_title":   "HTML-Bericht exportieren",
+        "export_html_success": "Bericht gespeichert unter:\n{path}",
+        "export_html_fail":    "Fehler beim Exportieren des Berichts.",
+
         "error_title":          "Analysefehler",
         "error_text":           "Analyse fehlgeschlagen:",
     },
