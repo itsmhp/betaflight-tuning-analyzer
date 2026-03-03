@@ -1,9 +1,16 @@
+# Web server (used by run.py for browser-based mode)
 fastapi==0.115.0
 uvicorn==0.30.0
 jinja2==3.1.4
 python-multipart==0.0.9
+aiofiles>=24.1.0
+plotly>=5.22.0
+
+# Analysis libraries
 numpy>=1.26.0
 scipy>=1.12.0
-plotly>=5.22.0
 pandas>=2.2.0
-aiofiles>=24.1.0
+
+# Qt GUI (used by run_gui.py for native desktop mode)
+PySide6-Essentials>=6.6.0
+matplotlib>=3.8.0

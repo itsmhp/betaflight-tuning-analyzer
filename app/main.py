@@ -20,17 +20,7 @@ from .config import (
     UPLOAD_DIR, TEMPLATES_DIR, STATIC_DIR,
     MAX_UPLOAD_SIZE_MB, ALLOWED_CLI_EXT, ALLOWED_BBL_EXT,
 )
-from .parsers.cli_parser import CLIParser
-from .parsers.bbl_header_parser import BBLHeaderParser
-from .parsers.bbl_data_parser import BBLDataParser
-from .analyzers.pid_analyzer import PIDAnalyzer
-from .analyzers.filter_analyzer import FilterAnalyzer
-from .analyzers.rate_analyzer import RateAnalyzer
-from .analyzers.general_analyzer import GeneralAnalyzer
-from .analyzers.noise_analyzer import NoiseAnalyzer
-from .analyzers.motor_analyzer import MotorAnalyzer
-from .analyzers.tracking_analyzer import TrackingAnalyzer
-from .generators.cli_generator import CLIGenerator
+from .core import run_analysis as _run_analysis_core
 from .knowledge.best_practices import AnalysisReport
 from .knowledge.presets import QuadProfile, get_preset, get_all_presets_for_size
 
@@ -191,33 +181,17 @@ async def api_analyze(
 # ---------------------------------------------------------------------------
 # Analysis Pipeline
 # ---------------------------------------------------------------------------
+# Analysis Pipeline – delegates to app.core (shared with Qt GUI)
+# ---------------------------------------------------------------------------
 
 def _run_analysis(
     cli_text: str,
     bbl_path: Optional[Path] = None,
     quad_profile: Optional[QuadProfile] = None,
 ) -> dict:
-    """
-    Execute the full analysis pipeline and return context dict for template.
-    """
-    report = AnalysisReport()
-    if quad_profile is None:
-        quad_profile = QuadProfile()
+    """Thin wrapper – delegates to :func:`app.core.run_analysis`."""
+    return _run_analysis_core(cli_text, bbl_path, quad_profile)
 
-    # ---- Phase 1: CLI dump analysis ----
-    cli_parser = CLIParser()
-    cli_data = cli_parser.parse(cli_text)
-
-    # Run config-based analyzers
-    PIDAnalyzer().analyze_config(cli_data, report)
-    FilterAnalyzer().analyze_config(cli_data, report)
-    RateAnalyzer().analyze_config(cli_data, report)
-    GeneralAnalyzer().analyze_config(cli_data, report)
-    MotorAnalyzer().analyze_config(cli_data, report)
-
-    # ---- Phase 2: BBL header analysis ----
-    bbl_header = None
-    flight_data = None
 
     if bbl_path and bbl_path.exists():
         bbl_raw = bbl_path.read_bytes()
