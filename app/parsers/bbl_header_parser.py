@@ -12,6 +12,30 @@ from typing import Dict, List, Optional, Tuple
 @dataclass
 class BBLHeaderData:
     """Parsed blackbox log header data."""
+
+    def get_blackbox_sample_rate(self) -> float:
+        """Calculate the effective blackbox logging rate in Hz.
+
+        Uses the same formula as the Betaflight Blackbox Log Viewer:
+            bbRate = gyroRate * p_interval_num / p_interval_denom / pid_process_denom
+
+        Note: p_ratio ("P ratio" header field) is the I/P *keyframe* ratio
+        (how many P-frames between I-frames) — it is NOT the logging decimation.
+        The logging decimation comes from "P interval" (e.g. "1/2" means log
+        every 2nd PID cycle).
+        Returns 0 if the header fields are insufficient (caller should fall back
+        to timestamp-based rate measurement).
+        """
+        if self.looptime <= 0:
+            return 0.0
+        gyro_rate = 1_000_000.0 / self.looptime
+        # p_interval_denom defaults to 1 if P interval was not "N/M" format
+        bb_rate = (gyro_rate
+                   * self.p_interval_num
+                   / max(self.p_interval_denom, 1)
+                   / max(self.pid_process_denom, 1))
+        return bb_rate if bb_rate > 0 else 0.0
+
     # Firmware
     firmware_type: str = ""
     firmware_revision: str = ""
@@ -29,8 +53,10 @@ class BBLHeaderData:
     gyro_sync_denom: int = 1
     pid_process_denom: int = 2
     i_interval: int = 1
-    p_interval: int = 1
-    p_ratio: int = 1
+    p_interval: int = 1       # raw (kept for compatibility)
+    p_interval_num: int = 1   # numerator of "P interval" N/M fraction
+    p_interval_denom: int = 1 # denominator — e.g. "1/2" means log every 2nd PID cycle
+    p_ratio: int = 1          # I/P keyframe ratio (NOT the logging decimation!)
 
     # PID
     roll_pid: Tuple[int, int, int] = (0, 0, 0)  # P, I, D
@@ -283,10 +309,27 @@ class BBLHeaderParser:
         elif key == "pid_process_denom":
             data.pid_process_denom = int(value)
         elif key == "I interval":
-            data.i_interval = int(value)
+            # "I interval" can be a plain int or "N/M" fraction
+            if "/" in str(value):
+                parts = value.split("/")
+                data.i_interval = int(parts[0].strip())
+            else:
+                data.i_interval = int(value)
         elif key == "P interval":
-            data.p_interval = int(value)
+            # Modern Betaflight writes "P interval:N/M" (e.g. "1/2")
+            # meaning: log 1 frame every M PID cycles.
+            data.p_interval = 1  # keep legacy field
+            if "/" in str(value):
+                parts = value.split("/")
+                data.p_interval_num   = int(parts[0].strip())
+                data.p_interval_denom = int(parts[1].strip())
+            else:
+                # Old format: plain integer (the denom, with num=1)
+                v = int(value)
+                data.p_interval_num   = 1
+                data.p_interval_denom = max(v, 1)
         elif key == "P ratio":
+            # This is the I/P keyframe ratio — NOT related to sample rate
             data.p_ratio = int(value)
 
         # PID
@@ -540,8 +583,9 @@ class BBLHeaderParser:
         return gyro_rate / data.pid_process_denom
 
     def get_blackbox_sample_rate(self, data: BBLHeaderData) -> float:
-        """Calculate the effective blackbox logging rate in Hz."""
-        pid_rate = self.get_effective_pid_rate(data)
-        if data.p_ratio > 0:
-            return pid_rate / data.p_ratio
-        return pid_rate
+        """Calculate the effective blackbox logging rate in Hz.
+
+        Delegates to BBLHeaderData.get_blackbox_sample_rate() which uses the
+        correct formula: gyroRate * p_interval_num / p_interval_denom / pid_process_denom
+        """
+        return data.get_blackbox_sample_rate()
