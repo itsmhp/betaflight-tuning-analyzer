@@ -16,9 +16,10 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QFrame, QScrollArea,
     QTabWidget, QTextEdit, QSplitter, QSizePolicy,
     QApplication, QFileDialog, QMessageBox,
+    QDoubleSpinBox, QSlider,
 )
 
-from app.knowledge.best_practices import Severity
+from app.knowledge.best_practices import Severity, Category
 from gui.i18n import t
 from gui.html_export import generate_html_report
 
@@ -190,6 +191,147 @@ def _scrollable_findings(findings: list) -> QWidget:
 
 
 # ───────────────────────────────────────────────────────────────────────────────
+# Quick Tuning Tool definitions
+# ───────────────────────────────────────────────────────────────────────────────
+
+_TOOL_DEFS: list = [
+    {
+        "id": "step_response",
+        "label": "Step Response",
+        "desc": "Per-axis PID response quality: rise time, overshoot, damping & oscillation count.",
+        "dtype": "step_response",
+        "needs_bbl": True,
+    },
+    {
+        "id": "motor_health",
+        "label": "Motor Health",
+        "desc": "Motor imbalance, vibration noise & desync risk detection per motor.",
+        "dtype": "motor_health",
+        "needs_bbl": True,
+    },
+    {
+        "id": "tpa",
+        "label": "TPA Analysis",
+        "desc": "Throttle PID Attenuation — measures whether TPA settings reduce oscillations at high throttle.",
+        "dtype": "tpa_analysis",
+        "needs_bbl": True,
+    },
+    {
+        "id": "prop_wash",
+        "label": "Prop Wash Detection",
+        "desc": "Detects & scores prop-wash recovery during rapid direction changes.",
+        "dtype": "prop_wash_analysis",
+        "needs_bbl": True,
+    },
+    {
+        "id": "dynamic_idle",
+        "label": "Dynamic Idle",
+        "desc": "Finds stable ground-idle windows to suggest an optimal dynamic_idle_min_rpm value.",
+        "dtype": "dynamic_idle_analysis",
+        "needs_bbl": True,
+    },
+    {
+        "id": "anti_gravity",
+        "label": "Anti-Gravity",
+        "desc": "Measures gyro drift during throttle punches — tunes anti_gravity_gain.",
+        "dtype": "anti_gravity",
+        "needs_bbl": True,
+    },
+    {
+        "id": "iterm_buildup",
+        "label": "I-Term Build-Up",
+        "desc": "Detects I-term wind-up events that cause wobble on hard manoeuvres.",
+        "dtype": "iterm_buildup",
+        "needs_bbl": True,
+    },
+    {
+        "id": "feedforward",
+        "label": "FeedForward Tuning",
+        "desc": "Setpoint tracking quality & stick-to-FF lag per roll/pitch/yaw axis.",
+        "dtype": "feedforward_analysis",
+        "needs_bbl": True,
+    },
+    {
+        "id": "thrust_linearization",
+        "label": "Thrust Linearization",
+        "desc": "Motor thrust curve non-linearity — onset percentage, hover point & PID impact.",
+        "dtype": "thrust_linearization",
+        "needs_bbl": True,
+    },
+    {
+        "id": "stick_movement",
+        "label": "Stick Movement",
+        "desc": "Pilot input analysis: smoothness, symmetry, jitter & expo suggestions.",
+        "dtype": "stick_movement",
+        "needs_bbl": True,
+    },
+    {
+        "id": "throttle_axis",
+        "label": "Throttle & Axis Manager",
+        "desc": "Throttle distribution, hover point detection & per-axis control percentages.",
+        "dtype": "throttle_axis",
+        "needs_bbl": True,
+    },
+    {
+        "id": "pid_contribution",
+        "label": "PID Contribution",
+        "desc": "P/I/D/F ratio per axis — diagnoses D-term dominance, I-term dominance, or FF under-use.",
+        "dtype": "pid_contribution",
+        "needs_bbl": True,
+    },
+    {
+        "id": "master_multiplier",
+        "label": "PID Master Multiplier",
+        "desc": "Interactively scale all PID gains by a multiplier and generate CLI commands.",
+        "dtype": None,
+        "needs_bbl": False,
+    },
+    {
+        "id": "noise",
+        "label": "Noise Profile",
+        "desc": "FFT gyro noise analysis: identifies resonance peaks & filter coverage evaluation.",
+        "dtype": None,
+        "cat": "Noise Analysis",
+        "needs_bbl": True,
+    },
+    {
+        "id": "filter",
+        "label": "Filter Analysis",
+        "desc": "Filter configuration audit: LPF, notch & dynamic filter settings vs measured noise.",
+        "dtype": None,
+        "cat": "Filter Settings",
+        "needs_bbl": False,
+    },
+]
+
+
+def _qt_tool_findings(all_findings: list, tool: dict) -> list:
+    """Collect findings belonging to a specific Quick Tuning Tool."""
+    dtype = tool.get("dtype")
+    cat   = tool.get("cat")
+    if dtype:
+        return [f for f in all_findings
+                if f.data and f.data.get("type") == dtype]
+    elif cat:
+        return [f for f in all_findings
+                if f.category.value == cat]
+    return []
+
+
+def _qt_tool_status(findings: list) -> tuple:
+    """Return (status_label, hex_color) from the worst finding severity."""
+    _order = {"critical": 4, "error": 3, "warning": 2, "info": 1}
+    worst = max(findings, key=lambda f: _order.get(f.severity.value.lower(), 0))
+    sev = worst.severity.value.lower()
+    return {
+        "critical": ("CRITICAL",     "#e74c3c"),
+        "error":    ("NEEDS TUNING", "#e67e22"),
+        "warning":  ("WARNING",      "#f1c40f"),
+        "info":     ("GOOD",         "#2ecc71"),
+    }.get(sev, ("OK", "#2ecc71"))
+
+
+# ───────────────────────────────────────────────────────────────────────────────
 # Main results page
 # ───────────────────────────────────────────────────────────────────────────────
 
@@ -287,6 +429,9 @@ class ResultsPage(QWidget):
         # Overview tab
         tabs.addTab(self._make_overview_tab(report, cli_data), t("tab_overview"))
 
+        # Quick Tuning Tools tab
+        tabs.addTab(self._make_tools_tab(r, chart_data), "Quick Tuning Tools")
+
         # Per-category tabs
         for cat_name, findings in r.get("findings_by_category", {}).items():
             tabs.addTab(
@@ -361,6 +506,244 @@ class ResultsPage(QWidget):
         sa.setWidgetResizable(True)
         sa.setWidget(container)
         return sa
+
+    def _make_tools_tab(self, result: dict, chart_data: dict) -> QWidget:
+        """Quick Tuning Tools tab — one card panel per tool."""
+        has_bbl    = result.get("has_bbl", False)
+        report     = result["report"]
+        cli_data   = result.get("cli_data")
+        all_findings = report.findings
+
+        outer = QWidget()
+        outer_layout = QVBoxLayout(outer)
+        outer_layout.setContentsMargins(8, 8, 8, 8)
+        outer_layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        outer_layout.addWidget(scroll)
+
+        container = QWidget()
+        vbox = QVBoxLayout(container)
+        vbox.setContentsMargins(16, 12, 16, 12)
+        vbox.setSpacing(12)
+        scroll.setWidget(container)
+
+        if not has_bbl:
+            warn = QLabel(
+                "\u26a0  No .bbl / .bfl flight log uploaded.\n"
+                "Most tools require blackbox data — upload a flight log to unlock them.\n"
+                "Only the PID Master Multiplier and Filter Analysis work without a log."
+            )
+            warn.setWordWrap(True)
+            warn.setStyleSheet(
+                "background:#2d2000;color:#ffc107;border:1px solid #7d5a00;"
+                "border-radius:4px;padding:10px 14px;font-size:12px;"
+            )
+            vbox.addWidget(warn)
+
+        for tool in _TOOL_DEFS:
+            findings = _qt_tool_findings(all_findings, tool)
+            if tool["id"] == "master_multiplier":
+                panel = self._build_multiplier_panel(cli_data)
+            else:
+                panel = self._build_tool_panel(tool, findings, has_bbl)
+            vbox.addWidget(panel)
+
+        vbox.addStretch()
+        return outer
+
+    def _build_tool_panel(self, tool: dict, findings: list, has_bbl: bool) -> QFrame:
+        """Build a single Quick Tuning Tool result card."""
+        frame = QFrame()
+        frame.setObjectName("card")
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+
+        vbox = QVBoxLayout(frame)
+        vbox.setContentsMargins(16, 14, 16, 14)
+        vbox.setSpacing(8)
+
+        # Header row
+        hdr = QHBoxLayout()
+        hdr.setSpacing(10)
+        name_lbl = QLabel(tool["label"])
+        name_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        name_lbl.setStyleSheet("color:#e0e0f0;")
+        hdr.addWidget(name_lbl)
+        hdr.addStretch()
+
+        needs_bbl = tool.get("needs_bbl", True)
+        if needs_bbl and not has_bbl:
+            badge = QLabel("BBL REQUIRED")
+            badge.setStyleSheet(
+                "color:#6060a0;border:1px solid #2a2a5a;"
+                "border-radius:3px;padding:2px 8px;font-weight:bold;font-size:11px;"
+            )
+        elif findings:
+            status_text, status_color = _qt_tool_status(findings)
+            badge = QLabel(status_text)
+            badge.setStyleSheet(
+                f"color:{status_color};border:1px solid {status_color};"
+                "border-radius:3px;padding:2px 8px;font-weight:bold;font-size:11px;"
+            )
+        else:
+            badge = QLabel("ALL CLEAR" if (has_bbl or not needs_bbl) else "NO DATA")
+            badge.setStyleSheet(
+                "color:#4db6ac;border:1px solid #4db6ac;"
+                "border-radius:3px;padding:2px 8px;font-weight:bold;font-size:11px;"
+            )
+        hdr.addWidget(badge)
+        vbox.addLayout(hdr)
+
+        # Description
+        desc = QLabel(tool["desc"])
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color:#8080b0;font-size:11px;margin-bottom:2px;")
+        vbox.addWidget(desc)
+
+        # Findings
+        if findings:
+            sep = QFrame()
+            sep.setFrameShape(QFrame.Shape.HLine)
+            sep.setStyleSheet("background:#1e1e38;")
+            sep.setFixedHeight(1)
+            vbox.addWidget(sep)
+            for f in findings:
+                vbox.addWidget(_finding_card(f))
+        elif (has_bbl or not needs_bbl) and not (needs_bbl and not has_bbl):
+            ok_lbl = QLabel("\u2714  No issues detected \u2014 all checks passed.")
+            ok_lbl.setStyleSheet("color:#4db6ac;font-size:12px;padding:2px 0;")
+            vbox.addWidget(ok_lbl)
+
+        return frame
+
+    def _build_multiplier_panel(self, cli_data) -> QFrame:
+        """Interactive PID Master Multiplier panel."""
+        from app.analyzers.master_multiplier import generate_scaled_pids
+
+        frame = QFrame()
+        frame.setObjectName("card")
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+
+        vbox = QVBoxLayout(frame)
+        vbox.setContentsMargins(16, 14, 16, 14)
+        vbox.setSpacing(10)
+
+        # Header
+        hdr = QHBoxLayout()
+        hdr.setSpacing(10)
+        name_lbl = QLabel("PID Master Multiplier")
+        name_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        name_lbl.setStyleSheet("color:#e0e0f0;")
+        hdr.addWidget(name_lbl)
+        hdr.addStretch()
+        badge = QLabel("INTERACTIVE")
+        badge.setStyleSheet(
+            "color:#4361ee;border:1px solid #4361ee;"
+            "border-radius:3px;padding:2px 8px;font-weight:bold;font-size:11px;"
+        )
+        hdr.addWidget(badge)
+        vbox.addLayout(hdr)
+
+        desc = QLabel(
+            "Scale all PID gains by a chosen multiplier (0.10\u20132.00). "
+            "Try 0.80\u00d7 to soften or 1.20\u00d7 to stiffen the tune."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color:#8080b0;font-size:11px;")
+        vbox.addWidget(desc)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("background:#1e1e38;")
+        sep.setFixedHeight(1)
+        vbox.addWidget(sep)
+
+        # Controls
+        ctrl = QHBoxLayout()
+        ctrl.setSpacing(10)
+        ctrl.addWidget(QLabel("Multiplier:"))
+
+        spinbox = QDoubleSpinBox()
+        spinbox.setRange(0.10, 2.00)
+        spinbox.setSingleStep(0.05)
+        spinbox.setValue(1.00)
+        spinbox.setDecimals(2)
+        spinbox.setFixedWidth(90)
+        spinbox.setStyleSheet(
+            "color:#e0e0f0;background:#1a1a38;border:1px solid #3a3a6a;"
+            "border-radius:3px;padding:2px 4px;"
+        )
+        ctrl.addWidget(spinbox)
+
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(10, 200)
+        slider.setValue(100)
+        slider.setMinimumWidth(180)
+        ctrl.addWidget(slider)
+
+        preview_btn = QPushButton("Preview")
+        preview_btn.setFixedWidth(90)
+        ctrl.addWidget(preview_btn)
+
+        copy_btn = QPushButton("Copy CLI")
+        copy_btn.setObjectName("copy_btn")
+        copy_btn.setFixedWidth(90)
+        copy_btn.setEnabled(False)
+        ctrl.addWidget(copy_btn)
+        ctrl.addStretch()
+        vbox.addLayout(ctrl)
+
+        # Result area
+        result_area = QTextEdit()
+        result_area.setReadOnly(True)
+        result_area.setMinimumHeight(160)
+        result_area.setMaximumHeight(260)
+        result_area.setFont(QFont("Consolas", 11))
+        result_area.setPlaceholderText(
+            "Click \u2018Preview\u2019 to see scaled PID values and CLI commands\u2026"
+        )
+        vbox.addWidget(result_area)
+
+        # Wiring
+        _latest = [""]  # mutable closure ref
+
+        def _sync_slider(val: int) -> None:
+            spinbox.blockSignals(True)
+            spinbox.setValue(val / 100.0)
+            spinbox.blockSignals(False)
+
+        def _sync_spin(val: float) -> None:
+            slider.blockSignals(True)
+            slider.setValue(int(round(val * 100)))
+            slider.blockSignals(False)
+
+        def _do_preview() -> None:
+            mult = spinbox.value()
+            if cli_data is None:
+                result_area.setPlainText(
+                    "No CLI data available \u2014 upload a CLI dump first."
+                )
+                return
+            res = generate_scaled_pids(cli_data, mult)
+            if res is None:
+                result_area.setPlainText(
+                    "Could not parse PID values from the CLI dump.\n"
+                    "Ensure the file contains a full 'diff all' or 'dump all' output."
+                )
+                return
+            lines = [res.summary, "", "\u2500\u2500 CLI Commands " + "\u2500" * 30]
+            lines.extend(res.all_cli_commands)
+            result_area.setPlainText("\n".join(lines))
+            _latest[0] = "\n".join(res.all_cli_commands)
+            copy_btn.setEnabled(True)
+
+        slider.valueChanged.connect(_sync_slider)
+        spinbox.valueChanged.connect(_sync_spin)
+        preview_btn.clicked.connect(_do_preview)
+        copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(_latest[0]))
+
+        return frame
 
     def _make_cli_tab(self, result: dict) -> QWidget:
         w = QWidget()
